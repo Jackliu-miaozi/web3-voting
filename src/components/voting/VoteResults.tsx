@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 // API configuration - we'll move this to env later
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 const optionLabels: Record<number, { label: string; color: string }> = {
   3: { label: "3 年内", color: "bg-red-500" },

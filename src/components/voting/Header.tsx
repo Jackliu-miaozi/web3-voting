@@ -1,6 +1,16 @@
 "use client";
 
+import Link from "next/link";
+import { useMemo } from "react";
+
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 interface HeaderProps {
   walletConnected: boolean;
@@ -8,6 +18,33 @@ interface HeaderProps {
   onConnect: () => void;
   onDisconnect: () => void;
 }
+
+const navItems = [
+  { label: "流程", href: "#flow" },
+  { label: "铸造", href: "/mint" },
+  { label: "抵押", href: "/stake" },
+  { label: "投票", href: "/vote" },
+  { label: "开奖", href: "/reveal" },
+  { label: "FAQ", href: "#faq" },
+];
+
+const networks = [
+  {
+    name: "Moonbeam",
+    status: "运行中",
+    color: "from-cyan-500 to-cyan-300",
+  },
+  {
+    name: "Bifrost SLPx",
+    status: "跨链就绪",
+    color: "from-purple-500 to-purple-300",
+  },
+  {
+    name: "Chainlink",
+    status: "监控中",
+    color: "from-pink-500 to-pink-300",
+  },
+];
 
 export function Header({
   walletConnected,
@@ -20,108 +57,220 @@ export function Header({
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-black/20 backdrop-blur-lg">
-      <div className="container mx-auto grid grid-cols-3 items-center px-4 py-4">
-        <div className="flex items-center space-x-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-purple-500">
-            <svg
-              className="h-6 w-6 text-white"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" />
-            </svg>
+  const walletButton = useMemo(() => {
+    if (walletConnected) {
+      return (
+        <div className="flex items-center gap-3">
+          <div className="hidden items-center rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white sm:flex">
+            <span className="mr-2 flex h-2 w-2 animate-pulse rounded-full bg-green-400" />
+            {formatAddress(walletAddress)}
           </div>
-          <div>
-            <h1 className="text-white">BTC 预测</h1>
-            <p className="text-xs text-gray-400">Powered by vDOT</p>
+          <Button
+            onClick={onDisconnect}
+            variant="outline"
+            className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+          >
+            断开
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <Button
+        onClick={onConnect}
+        className="border-0 bg-gradient-to-r from-cyan-500 to-purple-500 text-white hover:from-cyan-600 hover:to-purple-600"
+      >
+        连接钱包
+      </Button>
+    );
+  }, [walletConnected, walletAddress, onConnect, onDisconnect]);
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-black/30 backdrop-blur-xl">
+      <div className="container mx-auto flex items-center justify-between gap-6 px-4 py-4">
+        <div className="flex flex-1 items-center gap-4">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-purple-500">
+              <svg
+                className="h-6 w-6 text-white"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" />
+              </svg>
+            </div>
+            <div className="hidden flex-col sm:flex">
+              <span className="text-sm font-semibold text-white">
+                BTC 未来预测
+              </span>
+              <span className="text-xs text-gray-400">
+                Moonbeam × Bifrost × Chainlink
+              </span>
+            </div>
+          </Link>
+
+          <div className="hidden items-center gap-2 md:flex">
+            {networks.map((network) => (
+              <div
+                key={network.name}
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-200"
+              >
+                <span
+                  className={`h-2 w-2 rounded-full bg-gradient-to-r ${network.color}`}
+                />
+                <span className="font-medium text-white/80">
+                  {network.name}
+                </span>
+                <span className="text-white/50">{network.status}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        <nav className="hidden items-center justify-center md:flex">
-          <div className="relative rounded-full border border-white/20 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 px-4 py-2 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <div className="group flex items-center gap-1.5">
-                <svg
-                  className="h-4 w-4 text-cyan-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span className="text-sm text-cyan-300">抵押</span>
-              </div>
-              <div className="h-4 w-px bg-white/20" />
-              <div className="group flex items-center gap-1.5">
-                <svg
-                  className="h-4 w-4 text-purple-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                  />
-                </svg>
-                <span className="text-sm text-purple-300">投票</span>
-              </div>
-              <div className="h-4 w-px bg-white/20" />
-              <div className="group flex items-center gap-1.5">
-                <svg
-                  className="h-4 w-4 text-pink-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-                <span className="text-sm text-pink-300">结果</span>
-              </div>
-            </div>
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500/5 via-purple-500/5 to-pink-500/5 blur-sm" />
-          </div>
+        <nav className="hidden items-center gap-6 lg:flex">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-sm text-gray-200 transition hover:text-white"
+            >
+              {item.label}
+            </Link>
+          ))}
         </nav>
 
-        <div className="flex justify-end">
-          {walletConnected ? (
-            <div className="flex items-center space-x-3">
-              <div className="hidden items-center rounded-lg border border-white/20 bg-white/10 px-4 py-2 sm:flex">
-                <div className="mr-2 h-2 w-2 animate-pulse rounded-full bg-green-400" />
-                <span className="text-sm text-white">
-                  {formatAddress(walletAddress)}
-                </span>
-              </div>
-              <Button
-                onClick={onDisconnect}
-                variant="outline"
-                className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+        <div className="flex items-center gap-3">
+          <div className="lg:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:bg-white/10"
+                  aria-label="打开菜单"
+                >
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                side="right"
+                className="border-white/10 bg-slate-950/90 p-0 text-white shadow-[0_0_40px_rgba(59,130,246,0.25)] sm:max-w-sm"
               >
-                断开
-              </Button>
-            </div>
-          ) : (
-            <Button
-              onClick={onConnect}
-              className="border-0 bg-gradient-to-r from-cyan-500 to-purple-500 text-white hover:from-cyan-600 hover:to-purple-600"
-            >
-              连接钱包
-            </Button>
-          )}
+                <div className="relative flex h-full flex-col overflow-hidden">
+                  <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.25),transparent_60%)]" />
+                  <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_bottom,_rgba(192,132,252,0.18),transparent_55%)]" />
+
+                  <div className="flex items-center gap-3 px-6 pt-9">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-purple-500">
+                      <svg
+                        className="h-6 w-6 text-white"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z" />
+                      </svg>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-white">
+                        BTC 未来预测
+                      </span>
+                      <span className="text-xs text-white/60">
+                        Moonbeam · Bifrost · Chainlink
+                      </span>
+                    </div>
+                  </div>
+
+                  <nav className="mt-10 flex flex-col gap-3 px-6">
+                    {navItems.map((item) => (
+                      <Link
+                        key={`mobile-${item.href}`}
+                        href={item.href}
+                        className="group flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-base font-medium text-white/80 transition hover:border-white/30 hover:bg-white/10 hover:text-white"
+                      >
+                        <span>{item.label}</span>
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/60 transition group-hover:border-cyan-400/40 group-hover:bg-cyan-500/10 group-hover:text-cyan-200">
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.6}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </span>
+                      </Link>
+                    ))}
+                  </nav>
+
+                  <div className="mt-auto px-6 pb-10">
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+                      <p className="text-xs tracking-[0.3em] text-white/50 uppercase">
+                        网络状态
+                      </p>
+                      <div className="mt-5 space-y-3">
+                        {networks.map((network) => (
+                          <div
+                            key={`mobile-${network.name}`}
+                            className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`h-2.5 w-2.5 rounded-full bg-gradient-to-r ${network.color}`}
+                              />
+                              <div>
+                                <p className="text-sm font-medium text-white/80">
+                                  {network.name}
+                                </p>
+                                <p className="text-xs text-white/60">
+                                  {network.status}
+                                </p>
+                              </div>
+                            </div>
+                            <svg
+                              className="h-4 w-4 text-white/40"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.6}
+                                d="M5 12h14"
+                              />
+                            </svg>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="mt-6 text-xs text-white/50">
+                      数据实时同步自 Moonbeam、Bifrost 与
+                      Chainlink，随时掌握跨链与开奖进度。
+                    </p>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+          {walletButton}
         </div>
       </div>
     </header>
