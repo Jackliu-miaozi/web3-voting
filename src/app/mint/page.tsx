@@ -5,8 +5,7 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Header } from "@/components/voting/Header";
-import { useDemoWallet } from "@/hooks/useDemoWallet";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 export default function MintPage() {
   const [dotBalance, setDotBalance] = useState(280.32);
@@ -41,17 +40,13 @@ export default function MintPage() {
   };
 
   const {
-    walletConnected,
-    walletAddress,
-    connectWallet,
-    disconnectWallet,
-    connecting,
-  } = useDemoWallet({
-    onConnect: () => {
-      setDotBalance(280.32);
-    },
-    onDisconnect: resetState,
-  });
+    isConnected: walletConnected,
+    address: walletAddress,
+    connect,
+    isLoading: connecting,
+  } = useWalletContext();
+
+  const connectWallet = () => connect("evm");
 
   const exchangeRate = useMemo(() => 0.98, []);
   const networkFee = useMemo(() => 0.12, []);
@@ -104,14 +99,7 @@ export default function MintPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
-      <Header
-        walletConnected={walletConnected}
-        walletAddress={walletAddress}
-        onConnect={connectWallet}
-        onDisconnect={disconnectWallet}
-      />
-
+    <>
       <main className="container mx-auto max-w-6xl px-4 pt-16 pb-20">
         <div className="mb-12 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
@@ -332,6 +320,6 @@ export default function MintPage() {
           </div>
         </section>
       </main>
-    </div>
+    </>
   );
 }

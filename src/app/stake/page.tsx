@@ -5,14 +5,13 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Header } from "@/components/voting/Header";
-import { useDemoWallet } from "@/hooks/useDemoWallet";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 const LOCK_OPTIONS = [
   { label: "7 天 (默认)", value: 7, multiplier: 1 },
   { label: "30 天", value: 30, multiplier: 1.1 },
   { label: "90 天", value: 90, multiplier: 1.3 },
-];
+] as const;
 
 export default function StakePage() {
   const [vdotBalance, setVdotBalance] = useState(96.4);
@@ -44,17 +43,13 @@ export default function StakePage() {
   };
 
   const {
-    walletConnected,
-    walletAddress,
-    connectWallet,
-    disconnectWallet,
-    connecting,
-  } = useDemoWallet({
-    onConnect: () => {
-      setVdotBalance(96.4);
-    },
-    onDisconnect: resetState,
-  });
+    isConnected: walletConnected,
+    address: walletAddress,
+    connect,
+    isLoading: connecting,
+  } = useWalletContext();
+
+  const connectWallet = () => connect("evm");
 
   const projectedTickets = useMemo(() => {
     const amount = parseFloat(stakeAmount) || 0;
@@ -90,14 +85,7 @@ export default function StakePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 text-white">
-      <Header
-        walletConnected={walletConnected}
-        walletAddress={walletAddress}
-        onConnect={connectWallet}
-        onDisconnect={disconnectWallet}
-      />
-
+    <>
       <main className="container mx-auto max-w-6xl px-4 pt-16 pb-20">
         <div className="mb-12 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
@@ -171,7 +159,10 @@ export default function StakePage() {
                     return (
                       <button
                         key={option.value}
-                        onClick={() => setSelectedLock(option)}
+                        // 修复类型不兼容问题，确保 setSelectedLock 的类型与 option 匹配
+                        onClick={() =>
+                          setSelectedLock(option as typeof selectedLock)
+                        }
                         className={`rounded-2xl border p-4 text-left transition ${
                           active
                             ? "border-white/40 bg-white/15"
@@ -289,6 +280,6 @@ export default function StakePage() {
           </aside>
         </section>
       </main>
-    </div>
+    </>
   );
 }

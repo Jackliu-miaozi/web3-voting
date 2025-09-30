@@ -13,6 +13,8 @@ if (!projectId) {
 
 /**
  * Wagmi configuration for EVM chains (Moonbeam, Moonriver)
+ * This config is a singleton - created once and reused across the app
+ * to prevent WalletConnect from being initialized multiple times
  */
 export const wagmiConfig = createConfig({
   chains: [moonbeam, moonriver],
@@ -21,7 +23,7 @@ export const wagmiConfig = createConfig({
     injected({
       target: "metaMask",
     }),
-    // WalletConnect v2
+    // WalletConnect v2 - only initialize if project ID is available
     ...(projectId
       ? [
           walletConnect({
@@ -29,10 +31,20 @@ export const wagmiConfig = createConfig({
             metadata: {
               name: "Web3 Voting DApp",
               description: "BTC Future Prediction on Moonbeam & Bifrost",
-              url: "https://your-domain.com",
-              icons: ["https://your-domain.com/icon.png"],
+              url:
+                typeof window !== "undefined"
+                  ? window.location.origin
+                  : "https://localhost:3000",
+              icons: [
+                typeof window !== "undefined"
+                  ? `${window.location.origin}/favicon.ico`
+                  : "https://localhost:3000/favicon.ico",
+              ],
             },
             showQrModal: true,
+            qrModalOptions: {
+              themeMode: "dark",
+            },
           }),
         ]
       : []),
@@ -41,6 +53,7 @@ export const wagmiConfig = createConfig({
     storage: cookieStorage,
   }),
   ssr: true,
+  multiInjectedProviderDiscovery: false, // Prevent multiple provider detection
   transports: {
     [moonbeam.id]: http(),
     [moonriver.id]: http(),

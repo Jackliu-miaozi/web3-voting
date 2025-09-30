@@ -6,6 +6,7 @@ import { Geist } from "next/font/google";
 import { TRPCReactProvider } from "@/trpc/react";
 import { Web3Provider } from "@/providers/Web3Provider";
 import { WalletProvider } from "@/contexts/WalletContext";
+import { HeaderWithWallet } from "@/components/voting/HeaderWithWallet";
 
 export const metadata: Metadata = {
   title: "Web3 Voting - BTC Future Prediction",
@@ -24,10 +25,13 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${geist.variable}`}>
-      <body>
+      <body className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-slate-950 text-white">
         <TRPCReactProvider>
           <Web3Provider>
-            <WalletProvider>{children}</WalletProvider>
+            <WalletProvider>
+              <HeaderWithWallet />
+              {children}
+            </WalletProvider>
           </Web3Provider>
         </TRPCReactProvider>
       </body>

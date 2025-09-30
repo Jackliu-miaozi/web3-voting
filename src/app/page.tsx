@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { HeaderWithWallet } from "@/components/voting/HeaderWithWallet";
 import {
   ActionCallouts,
   AssetOverview,
@@ -111,7 +110,6 @@ export default function Home() {
     } else {
       resetState();
     }
-     
   }, [walletConnected, walletAddress]);
 
   const connectWallet = () => connect("evm"); // 默认连接 EVM 钱包
@@ -238,9 +236,7 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-slate-950 text-white">
-      <HeaderWithWallet />
-
+    <>
       <main className="container mx-auto max-w-7xl px-4 pt-16 pb-20">
         <section className="relative mb-16 grid gap-10 lg:grid-cols-[2fr,1fr] lg:items-center">
           <div>
@@ -447,6 +443,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-    </div>
+    </>
   );
 }
