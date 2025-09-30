@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Header } from "@/components/voting/Header";
+import { HeaderWithWallet } from "@/components/voting/HeaderWithWallet";
 import {
   ActionCallouts,
   AssetOverview,
@@ -18,7 +18,7 @@ import { StakeSection } from "@/components/voting/StakeSection";
 import { UserDashboard } from "@/components/voting/UserDashboard";
 import { VoteResults } from "@/components/voting/VoteResults";
 import { VoteSection } from "@/components/voting/VoteSection";
-import { useDemoWallet } from "@/hooks/useDemoWallet";
+import { useWalletContext } from "@/contexts/WalletContext";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 const FALLBACK_LAST_MINT = "约 2 小时前";
@@ -97,17 +97,24 @@ export default function Home() {
   };
 
   const {
-    walletConnected,
-    walletAddress,
-    connectWallet,
-    disconnectWallet,
-    connecting,
-  } = useDemoWallet({
-    onConnect: async (address) => {
-      await loadUserData(address);
-    },
-    onDisconnect: resetState,
-  });
+    isConnected: walletConnected,
+    address: walletAddress,
+    connect,
+    disconnect,
+    isLoading: connecting,
+  } = useWalletContext();
+
+  // Load user data when wallet connects
+  useEffect(() => {
+    if (walletConnected && walletAddress) {
+      void loadUserData(walletAddress);
+    } else {
+      resetState();
+    }
+     
+  }, [walletConnected, walletAddress]);
+
+  const connectWallet = () => connect("evm"); // 默认连接 EVM 钱包
 
   const handleStake = async (amount: number) => {
     try {
@@ -232,12 +239,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-slate-950 text-white">
-      <Header
-        walletConnected={walletConnected}
-        walletAddress={walletAddress}
-        onConnect={connectWallet}
-        onDisconnect={disconnectWallet}
-      />
+      <HeaderWithWallet />
 
       <main className="container mx-auto max-w-7xl px-4 pt-16 pb-20">
         <section className="relative mb-16 grid gap-10 lg:grid-cols-[2fr,1fr] lg:items-center">
