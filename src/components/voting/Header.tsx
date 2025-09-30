@@ -4,13 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface HeaderProps {
   walletConnected: boolean;
@@ -20,28 +14,24 @@ interface HeaderProps {
 }
 
 const navItems = [
-  { label: "流程", href: "#flow" },
+  // { label: "流程", href: "#flow" },
   { label: "铸造", href: "/mint" },
   { label: "抵押", href: "/stake" },
   { label: "投票", href: "/vote" },
   { label: "开奖", href: "/reveal" },
-  { label: "FAQ", href: "#faq" },
 ];
 
 const networks = [
   {
     name: "Moonbeam",
-    status: "运行中",
     color: "from-cyan-500 to-cyan-300",
   },
   {
-    name: "Bifrost SLPx",
-    status: "跨链就绪",
+    name: "Bifrost",
     color: "from-purple-500 to-purple-300",
   },
   {
     name: "Chainlink",
-    status: "监控中",
     color: "from-pink-500 to-pink-300",
   },
 ];
@@ -122,7 +112,6 @@ export function Header({
                 <span className="font-medium text-white/80">
                   {network.name}
                 </span>
-                <span className="text-white/50">{network.status}</span>
               </div>
             ))}
           </div>
@@ -221,46 +210,6 @@ export function Header({
                   </nav>
 
                   <div className="mt-auto px-6 pb-10">
-                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
-                      <p className="text-xs tracking-[0.3em] text-white/50 uppercase">
-                        网络状态
-                      </p>
-                      <div className="mt-5 space-y-3">
-                        {networks.map((network) => (
-                          <div
-                            key={`mobile-${network.name}`}
-                            className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-                          >
-                            <div className="flex items-center gap-3">
-                              <span
-                                className={`h-2.5 w-2.5 rounded-full bg-gradient-to-r ${network.color}`}
-                              />
-                              <div>
-                                <p className="text-sm font-medium text-white/80">
-                                  {network.name}
-                                </p>
-                                <p className="text-xs text-white/60">
-                                  {network.status}
-                                </p>
-                              </div>
-                            </div>
-                            <svg
-                              className="h-4 w-4 text-white/40"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.6}
-                                d="M5 12h14"
-                              />
-                            </svg>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                     <p className="mt-6 text-xs text-white/50">
                       数据实时同步自 Moonbeam、Bifrost 与
                       Chainlink，随时掌握跨链与开奖进度。

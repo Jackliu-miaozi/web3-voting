@@ -243,7 +243,7 @@ export default function Home() {
         <section className="relative mb-16 grid gap-10 lg:grid-cols-[2fr,1fr] lg:items-center">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs tracking-[0.2em] text-white/60 uppercase">
-              2025 赛季 · 预测竞赛
+              BTC何时会被竞争链超越
             </span>
             <h1 className="mt-6 text-4xl leading-tight font-semibold md:text-5xl lg:text-6xl">
               一次点击完成 DOT 跨链抵押，预测 BTC 的未来拐点
@@ -317,7 +317,7 @@ export default function Home() {
                     d="M5 13l4 4L19 7"
                   />
                 </svg>
-                Chainlink 监听频次：24h/次
+                Chainlink 监听频次：每日国际标准时间00:00更新
               </div>
             </div>
           </div>
