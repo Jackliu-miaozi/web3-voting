@@ -1,14 +1,52 @@
 import { cookieStorage, createConfig, createStorage, http } from "wagmi";
-import { walletConnect, injected } from "wagmi/connectors";
-import { moonbeam, moonriver } from "./chains";
+import { injected } from "wagmi/connectors";
+import { moonbeam, moonriver, hardhat } from "./chains";
 
-// Get WalletConnect project ID from environment
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
+// Get WalletConnect project ID from environment - only on client side
+const projectId =
+  typeof window !== "undefined"
+    ? process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+    : undefined;
 
-if (!projectId) {
+// Only show warning on client side
+if (typeof window !== "undefined" && !projectId) {
   console.warn(
     "⚠️  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is not set. Get one at https://cloud.walletconnect.com",
   );
+}
+
+/**
+ * Create wagmi configuration with proper SSR handling
+ * This function ensures WalletConnect is only initialized on the client side
+ */
+function createWagmiConfig() {
+  const connectors = [
+    // Injected connector for browser wallets (MetaMask, etc.)
+    injected({
+      target: "metaMask",
+    }),
+  ];
+
+  // Temporarily disable WalletConnect to prevent SSR issues
+  // TODO: Re-enable WalletConnect with proper SSR handling
+  // if (typeof window !== "undefined" && projectId) {
+  //   connectors.push(walletConnect({ ... }));
+  // }
+
+  return createConfig({
+    chains: [moonbeam, moonriver, hardhat],
+    connectors,
+    storage: createStorage({
+      storage: cookieStorage,
+    }),
+    ssr: true,
+    multiInjectedProviderDiscovery: false, // Prevent multiple provider detection
+    transports: {
+      [moonbeam.id]: http(),
+      [moonriver.id]: http(),
+      [hardhat.id]: http(),
+    },
+  });
 }
 
 /**
@@ -16,46 +54,4 @@ if (!projectId) {
  * This config is a singleton - created once and reused across the app
  * to prevent WalletConnect from being initialized multiple times
  */
-export const wagmiConfig = createConfig({
-  chains: [moonbeam, moonriver],
-  connectors: [
-    // Injected connector for browser wallets (MetaMask, etc.)
-    injected({
-      target: "metaMask",
-    }),
-    // WalletConnect v2 - only initialize if project ID is available
-    ...(projectId
-      ? [
-          walletConnect({
-            projectId,
-            metadata: {
-              name: "Web3 Voting DApp",
-              description: "BTC Future Prediction on Moonbeam & Bifrost",
-              url:
-                typeof window !== "undefined"
-                  ? window.location.origin
-                  : "https://localhost:3000",
-              icons: [
-                typeof window !== "undefined"
-                  ? `${window.location.origin}/favicon.ico`
-                  : "https://localhost:3000/favicon.ico",
-              ],
-            },
-            showQrModal: true,
-            qrModalOptions: {
-              themeMode: "dark",
-            },
-          }),
-        ]
-      : []),
-  ],
-  storage: createStorage({
-    storage: cookieStorage,
-  }),
-  ssr: true,
-  multiInjectedProviderDiscovery: false, // Prevent multiple provider detection
-  transports: {
-    [moonbeam.id]: http(),
-    [moonriver.id]: http(),
-  },
-});
+export const wagmiConfig = createWagmiConfig();

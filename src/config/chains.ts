@@ -76,6 +76,30 @@ export const moonriver = defineChain({
 });
 
 /**
+ * Hardhat Local Network Configuration
+ * For local development and testing
+ */
+export const hardhat = defineChain({
+  id: 31337,
+  name: "Hardhat Local",
+  network: "hardhat",
+  nativeCurrency: {
+    decimals: 18,
+    name: "Ether",
+    symbol: "ETH",
+  },
+  rpcUrls: {
+    default: {
+      http: ["http://127.0.0.1:8545"],
+    },
+    public: {
+      http: ["http://127.0.0.1:8545"],
+    },
+  },
+  testnet: true,
+});
+
+/**
  * Supported chains for the application
  */
-export const supportedChains = [moonbeam, moonriver] as const;
+export const supportedChains = [moonbeam, moonriver, hardhat] as const;

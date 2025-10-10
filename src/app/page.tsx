@@ -18,6 +18,7 @@ import { UserDashboard } from "@/components/voting/UserDashboard";
 import { VoteResults } from "@/components/voting/VoteResults";
 import { VoteSection } from "@/components/voting/VoteSection";
 import { useWalletContext } from "@/contexts/WalletContext";
+import { useContractStats } from "@/hooks/useContractStats";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 const FALLBACK_LAST_MINT = "约 2 小时前";
@@ -49,6 +50,9 @@ export default function Home() {
   const [lastMintTime, setLastMintTime] = useState<string | null>(null);
   const [communityJoined, setCommunityJoined] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // 获取链上统计数据
+  const contractStats = useContractStats();
 
   const loadUserData = async (address: string) => {
     try {
@@ -99,7 +103,6 @@ export default function Home() {
     isConnected: walletConnected,
     address: walletAddress,
     connect,
-    disconnect,
     isLoading: connecting,
   } = useWalletContext();
 
@@ -228,11 +231,32 @@ export default function Home() {
 
   const heroMetrics = useMemo(
     () => [
-      { label: "累计铸造", value: "128,520 vDOT" },
-      { label: "抵押总量", value: "92,310 vDOT" },
-      { label: "参与地址", value: "8,236" },
+      {
+        label: "累计铸造",
+        value: contractStats.isLoading
+          ? "加载中..."
+          : contractStats.hasError
+            ? "数据错误"
+            : `${contractStats.totalMinted} vDOT`,
+      },
+      {
+        label: "抵押总量",
+        value: contractStats.isLoading
+          ? "加载中..."
+          : contractStats.hasError
+            ? "数据错误"
+            : `${contractStats.totalStaked} vDOT`,
+      },
+      {
+        label: "参与地址",
+        value: contractStats.isLoading
+          ? "加载中..."
+          : contractStats.hasError
+            ? "数据错误"
+            : contractStats.participantCount,
+      },
     ],
-    [],
+    [contractStats],
   );
 
   return (
@@ -342,8 +366,11 @@ export default function Home() {
               ))}
             </div>
             <p className="mt-6 text-xs text-white/50">
-              数据示意：当前版本展示演示数据，实际部署后将实时读取 Moonbeam /
-              Bifrost / Chainlink 的链上状态。
+              {contractStats.hasError
+                ? "⚠️ 链上数据读取失败，请检查网络连接或切换网络"
+                : contractStats.isLoading
+                  ? "🔄 正在同步链上数据..."
+                  : "✅ 数据实时读取自智能合约，每10秒自动更新"}
             </p>
           </div>
         </section>
@@ -365,23 +392,9 @@ export default function Home() {
 
         {walletConnected && (
           <>
-            <UserDashboard
-              dotBalance={dotBalance}
-              mintedVdot={mintedVdot}
-              stakedAmount={stakedAmount}
-              votingPower={votingPower}
-              ticketBalance={ticketBalance}
-              hasVoted={hasVoted}
-            />
+            <UserDashboard />
 
-            <AssetOverview
-              walletConnected={walletConnected}
-              dotBalance={dotBalance}
-              mintedVdot={mintedVdot}
-              stakedAmount={stakedAmount}
-              votingPower={votingPower}
-              ticketBalance={ticketBalance}
-            />
+            <AssetOverview />
 
             <section className="mb-16 grid gap-6 lg:grid-cols-[1.65fr,1fr]">
               <div className="space-y-6">

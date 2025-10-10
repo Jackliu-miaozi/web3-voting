@@ -1,26 +1,17 @@
 "use client";
 
-interface UserDashboardProps {
-  dotBalance: number;
-  mintedVdot: number;
-  stakedAmount: number;
-  votingPower: number;
-  ticketBalance: number;
-  hasVoted: boolean;
-}
+import { useUserData } from "@/hooks/useUserData";
 
-export function UserDashboard({
-  dotBalance,
-  mintedVdot,
-  stakedAmount,
-  votingPower,
-  ticketBalance,
-  hasVoted,
-}: UserDashboardProps) {
+export function UserDashboard() {
+  const userData = useUserData();
   const cards = [
     {
       label: "Moonbeam DOT",
-      value: `${dotBalance.toFixed(2)} DOT`,
+      value: userData.isLoading
+        ? "加载中..."
+        : userData.hasError
+          ? "数据错误"
+          : `${userData.nativeBalance} ETH`,
       helper: "钱包余额",
       iconColor: "text-cyan-300",
       icon: (
@@ -41,7 +32,11 @@ export function UserDashboard({
     },
     {
       label: "已铸造 vDOT",
-      value: `${mintedVdot.toFixed(2)} vDOT`,
+      value: userData.isLoading
+        ? "加载中..."
+        : userData.hasError
+          ? "数据错误"
+          : `${userData.totalVDOT} vDOT`,
       helper: "跨链成功",
       iconColor: "text-purple-300",
       icon: (
@@ -80,7 +75,11 @@ export function UserDashboard({
     },
     {
       label: "已抵押",
-      value: `${stakedAmount.toFixed(2)} vDOT`,
+      value: userData.isLoading
+        ? "加载中..."
+        : userData.hasError
+          ? "数据错误"
+          : `${userData.stakedAmount} vDOT`,
       helper: "锁定合约",
       iconColor: "text-emerald-300",
       icon: (
@@ -101,7 +100,11 @@ export function UserDashboard({
     },
     {
       label: "投票权",
-      value: `${votingPower.toFixed(0)} 票`,
+      value: userData.isLoading
+        ? "加载中..."
+        : userData.hasError
+          ? "数据错误"
+          : `${userData.votingPower} 票`,
       helper: "可用票券",
       iconColor: "text-amber-300",
       icon: (
@@ -128,7 +131,11 @@ export function UserDashboard({
     },
     {
       label: "票券余额",
-      value: `${ticketBalance.toFixed(0)} 张`,
+      value: userData.isLoading
+        ? "加载中..."
+        : userData.hasError
+          ? "数据错误"
+          : `${userData.ticketBalance} 张`,
       helper: "待投票",
       iconColor: "text-pink-300",
       icon: (
@@ -161,10 +168,16 @@ export function UserDashboard({
     },
     {
       label: "投票状态",
-      value: hasVoted ? "已提交" : "待参与",
-      helper: hasVoted ? "等待开奖" : "完成抵押即可投票",
-      iconColor: hasVoted ? "text-green-300" : "text-yellow-300",
-      icon: hasVoted ? (
+      value: userData.isLoading
+        ? "加载中..."
+        : userData.hasError
+          ? "数据错误"
+          : userData.hasVoted
+            ? "已提交"
+            : "待参与",
+      helper: userData.hasVoted ? "等待开奖" : "完成抵押即可投票",
+      iconColor: userData.hasVoted ? "text-green-300" : "text-yellow-300",
+      icon: userData.hasVoted ? (
         <svg
           className="h-5 w-5"
           fill="none"
@@ -211,8 +224,20 @@ export function UserDashboard({
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
-          <span className="flex h-2 w-2 rounded-full bg-green-400" />
-          状态正常
+          <span
+            className={`flex h-2 w-2 rounded-full ${
+              userData.isLoading
+                ? "animate-pulse bg-yellow-400"
+                : userData.hasError
+                  ? "bg-red-400"
+                  : "bg-green-400"
+            }`}
+          />
+          {userData.isLoading
+            ? "同步中..."
+            : userData.hasError
+              ? "数据错误"
+              : "状态正常"}
         </div>
       </div>
 

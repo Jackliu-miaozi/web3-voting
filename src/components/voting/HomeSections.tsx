@@ -168,59 +168,95 @@ export function ProcessTimeline() {
   );
 }
 
-interface AssetOverviewProps {
-  walletConnected: boolean;
-  dotBalance: number;
-  mintedVdot: number;
-  stakedAmount: number;
-  votingPower: number;
-  ticketBalance: number;
-}
+import { useUserData } from "@/hooks/useUserData";
+import { useAccount } from "wagmi";
+import { useMemo } from "react";
 
-export function AssetOverview({
-  walletConnected,
-  dotBalance,
-  mintedVdot,
-  stakedAmount,
-  votingPower,
-  ticketBalance,
-}: AssetOverviewProps) {
+export function AssetOverview() {
+  const { address } = useAccount();
+  const userData = useUserData();
+  const walletConnected = Boolean(address);
+
+  // 计算可铸造额度
+  const availableToMint = useMemo(() => {
+    if (!walletConnected || userData.isLoading) return "--";
+
+    const nativeBalance = parseFloat(userData.nativeBalance);
+    const vDOTBalance = parseFloat(userData.vDOTBalance);
+    const available = Math.max(nativeBalance - vDOTBalance, 0);
+
+    return available.toFixed(2);
+  }, [walletConnected, userData]);
   const cards = [
     {
       label: "Moonbeam DOT 余额",
-      value: walletConnected ? `${dotBalance.toFixed(2)} DOT` : "--",
+      value: walletConnected
+        ? userData.isLoading
+          ? "加载中..."
+          : userData.hasError
+            ? "数据错误"
+            : `${userData.nativeBalance} ETH`
+        : "--",
       hint: "连接钱包后显示实际余额",
       accent: "from-cyan-500/30 to-cyan-400/20",
     },
     {
       label: "可铸造额度",
       value: walletConnected
-        ? `${Math.max(dotBalance - mintedVdot, 0).toFixed(2)} DOT`
+        ? userData.isLoading
+          ? "加载中..."
+          : userData.hasError
+            ? "数据错误"
+            : `${availableToMint} ETH`
         : "--",
       hint: "扣除保留抵押后剩余可用",
       accent: "from-purple-500/30 to-purple-400/20",
     },
     {
       label: "已铸造 vDOT",
-      value: walletConnected ? `${mintedVdot.toFixed(2)} vDOT` : "--",
+      value: walletConnected
+        ? userData.isLoading
+          ? "加载中..."
+          : userData.hasError
+            ? "数据错误"
+            : `${userData.vDOTBalance} vDOT`
+        : "--",
       hint: "跨链成功后自动更新",
       accent: "from-blue-500/30 to-indigo-400/20",
     },
     {
       label: "票券余额",
-      value: walletConnected ? `${ticketBalance.toFixed(0)} 张` : "--",
+      value: walletConnected
+        ? userData.isLoading
+          ? "加载中..."
+          : userData.hasError
+            ? "数据错误"
+            : `${userData.ticketBalance} 张`
+        : "--",
       hint: "1 vDOT = 1 投票券",
       accent: "from-pink-500/30 to-pink-400/20",
     },
     {
       label: "已抵押总量",
-      value: walletConnected ? `${stakedAmount.toFixed(2)} vDOT` : "--",
+      value: walletConnected
+        ? userData.isLoading
+          ? "加载中..."
+          : userData.hasError
+            ? "数据错误"
+            : `${userData.stakedAmount} vDOT`
+        : "--",
       hint: "抵押合约实时同步",
       accent: "from-emerald-500/30 to-emerald-400/20",
     },
     {
       label: "可用投票权",
-      value: walletConnected ? `${votingPower.toFixed(0)} 票` : "--",
+      value: walletConnected
+        ? userData.isLoading
+          ? "加载中..."
+          : userData.hasError
+            ? "数据错误"
+            : `${userData.votingPower} 票`
+        : "--",
       hint: "抵押后立即获得",
       accent: "from-orange-500/30 to-amber-400/20",
     },
