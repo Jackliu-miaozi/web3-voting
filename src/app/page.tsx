@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ActionCallouts,
-  AssetOverview,
   ChainlinkStatusCard,
   ConnectWalletPanel,
   FaqSection,
@@ -393,8 +392,6 @@ export default function Home() {
         {walletConnected && (
           <>
             <UserDashboard />
-
-            <AssetOverview />
 
             <section className="mb-16 grid gap-6 lg:grid-cols-[1.65fr,1fr]">
               <div className="space-y-6">

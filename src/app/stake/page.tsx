@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useAccount } from "wagmi";
+import { parseEther, formatEther } from "viem";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useWalletContext } from "@/contexts/WalletContext";
+import { useStakingContract } from "@/hooks/useStakingContract";
 
 const LOCK_OPTIONS = [
   { label: "7 天 (默认)", value: 7, multiplier: 1 },
@@ -14,75 +16,82 @@ const LOCK_OPTIONS = [
 ] as const;
 
 export default function StakePage() {
-  const [vdotBalance, setVdotBalance] = useState(96.4);
-  const [stakeAmount, setStakeAmount] = useState("32");
-  const [selectedLock, setSelectedLock] = useState(LOCK_OPTIONS[0]);
-  const [tickets, setTickets] = useState(54);
-  const [history, setHistory] = useState([
-    {
-      time: "2025/02/26 15:30",
-      amount: 24,
-      lockDays: 7,
-      status: "生效中",
-      tx: "0x914a...aa1",
-    },
-    {
-      time: "2025/02/20 10:05",
-      amount: 12,
-      lockDays: 30,
-      status: "锁定中",
-      tx: "0xab32...b44",
-    },
-  ]);
-  const [isStaking, setIsStaking] = useState(false);
+  const { isConnected } = useAccount();
+  const [stakeAmount, setStakeAmount] = useState("");
+  const [selectedLock, setSelectedLock] = useState<
+    (typeof LOCK_OPTIONS)[number]
+  >(LOCK_OPTIONS[0]);
 
-  const resetState = () => {
-    setStakeAmount("32");
-    setSelectedLock(LOCK_OPTIONS[0]);
-    setIsStaking(false);
-  };
+  const { vDOTBalance, stakeCount, ticketBalance, stake, isPending, error } =
+    useStakingContract();
 
-  const {
-    isConnected: walletConnected,
-    address: walletAddress,
-    connect,
-    isLoading: connecting,
-  } = useWalletContext();
+  // 格式化余额显示
+  const formattedBalance = useMemo(() => {
+    if (!vDOTBalance || vDOTBalance === BigInt(0)) return "0.00";
+    return formatEther(vDOTBalance as bigint);
+  }, [vDOTBalance]);
 
-  const connectWallet = () => connect("evm");
+  // 格式化投票券余额显示
+  const formattedTicketBalance = useMemo(() => {
+    if (!ticketBalance || ticketBalance === BigInt(0)) return "0.00";
+    return formatEther(ticketBalance as bigint);
+  }, [ticketBalance]);
 
+  // 计算预计获得的票券
   const projectedTickets = useMemo(() => {
     const amount = parseFloat(stakeAmount) || 0;
     return amount > 0 ? amount * selectedLock.multiplier : 0;
   }, [stakeAmount, selectedLock]);
 
-  const stake = async () => {
-    if (!walletConnected) {
-      await connectWallet();
+  // 处理抵押
+  const handleStake = async () => {
+    if (!isConnected) {
+      alert("请先连接钱包");
       return;
     }
 
     const amount = parseFloat(stakeAmount);
-    if (!amount || amount <= 0 || amount > vdotBalance) return;
+    if (!amount || amount <= 0) {
+      alert("请输入有效的抵押数量");
+      return;
+    }
 
-    setIsStaking(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setVdotBalance((prev) => Math.max(prev - amount, 0));
-    setTickets((prev) => prev + projectedTickets);
-    setHistory((prev) => [
-      {
-        time: new Date().toLocaleString("zh-CN", { hour12: false }),
-        amount,
-        lockDays: selectedLock.value,
-        status: "锁定中",
-        tx: `0x${Math.random().toString(16).slice(2, 8)}...${Math.random()
-          .toString(16)
-          .slice(2, 5)}`,
-      },
-      ...prev,
-    ]);
-    setIsStaking(false);
+    if (amount > parseFloat(formattedBalance)) {
+      alert("抵押数量不能超过余额");
+      return;
+    }
+
+    try {
+      await stake(parseEther(stakeAmount), selectedLock.value);
+      setStakeAmount(""); // 清空输入
+    } catch (error) {
+      console.error("抵押失败:", error);
+    }
   };
+
+  // 快速选择百分比
+  const handlePercentageSelect = (percent: number) => {
+    const balance = parseFloat(formattedBalance);
+    const amount = (balance * percent) / 100;
+    setStakeAmount(amount.toFixed(4));
+  };
+
+  if (!isConnected) {
+    return (
+      <div className="container mx-auto max-w-4xl px-4 py-16">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-xl">
+          <h1 className="mb-4 text-3xl font-bold text-white">抵押 vDOT</h1>
+          <p className="mb-6 text-gray-400">请先连接钱包以开始抵押 vDOT</p>
+          <Link
+            href="/"
+            className="inline-block rounded-lg bg-gradient-to-r from-cyan-500 to-purple-500 px-6 py-3 text-white transition-all hover:from-cyan-600 hover:to-purple-600"
+          >
+            返回首页连接钱包
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -108,18 +117,13 @@ export default function StakePage() {
                 <div>
                   <h2 className="text-xl font-semibold">抵押表单</h2>
                   <p className="text-sm text-white/60">
-                    可用余额：{vdotBalance.toFixed(2)} vDOT
+                    可用余额：{formattedBalance} vDOT
                   </p>
                 </div>
-                {!walletConnected && (
-                  <Button
-                    onClick={connectWallet}
-                    disabled={connecting}
-                    className="border-0 bg-gradient-to-r from-cyan-500 to-purple-500 text-white hover:from-cyan-600 hover:to-purple-600"
-                  >
-                    {connecting ? "连接中..." : "连接钱包"}
-                  </Button>
-                )}
+                <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
+                  <span className="flex h-2 w-2 rounded-full bg-green-400" />
+                  钱包已连接
+                </div>
               </div>
 
               <label className="mb-2 block text-xs tracking-wide text-white/60 uppercase">
@@ -130,7 +134,7 @@ export default function StakePage() {
                 onChange={(event) => setStakeAmount(event.target.value)}
                 type="number"
                 min="0"
-                step="0.01"
+                step="0.0001"
                 className="border-white/20 bg-white/5 text-lg text-white placeholder:text-white/40"
                 placeholder="0.00"
               />
@@ -139,9 +143,7 @@ export default function StakePage() {
                   <button
                     key={percent}
                     type="button"
-                    onClick={() =>
-                      setStakeAmount(((vdotBalance * percent) / 100).toFixed(2))
-                    }
+                    onClick={() => handlePercentageSelect(percent)}
                     className="rounded-full border border-white/10 bg-white/5 px-3 py-1 hover:border-white/30"
                   >
                     {percent}%
@@ -159,10 +161,7 @@ export default function StakePage() {
                     return (
                       <button
                         key={option.value}
-                        // 修复类型不兼容问题，确保 setSelectedLock 的类型与 option 匹配
-                        onClick={() =>
-                          setSelectedLock(option as typeof selectedLock)
-                        }
+                        onClick={() => setSelectedLock(option)}
                         className={`rounded-2xl border p-4 text-left transition ${
                           active
                             ? "border-white/40 bg-white/15"
@@ -189,14 +188,27 @@ export default function StakePage() {
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>当前票券余额</span>
-                  <span className="text-white">{tickets} 张</span>
+                  <span>当前投票券余额</span>
+                  <span className="text-white">
+                    {formattedTicketBalance} 张
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>当前抵押记录</span>
+                  <span className="text-white">{Number(stakeCount)} 条</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-white/10 pt-3 text-white">
                   <span>预计可解锁时间</span>
                   <span>锁定后第 {selectedLock.value} 天</span>
                 </div>
               </div>
+
+              {/* 错误提示 */}
+              {error && (
+                <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3">
+                  <p className="text-xs text-red-400">错误: {error.message}</p>
+                </div>
+              )}
 
               <div className="mt-8 flex items-center gap-3 text-xs text-white/60">
                 <span className="flex h-4 w-4 items-center justify-center rounded-full border border-white/20">
@@ -218,15 +230,13 @@ export default function StakePage() {
               </div>
 
               <Button
-                onClick={stake}
-                disabled={isStaking || !stakeAmount}
+                onClick={handleStake}
+                disabled={
+                  isPending || !stakeAmount || parseFloat(stakeAmount) <= 0
+                }
                 className="mt-8 w-full border-0 bg-gradient-to-r from-cyan-500 to-purple-500 text-lg text-white hover:from-cyan-600 hover:to-purple-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isStaking
-                  ? "抵押处理中..."
-                  : walletConnected
-                    ? "确认抵押"
-                    : "连接钱包后抵押"}
+                {isPending ? "抵押处理中..." : "确认抵押"}
               </Button>
               <p className="mt-3 text-center text-xs text-white/50">
                 解锁需要经历安全等待期，期间可查看抵押状态但无法提前转出。
@@ -240,7 +250,7 @@ export default function StakePage() {
                 锁仓信息
               </p>
               <ul className="mt-4 space-y-3 text-sm text-white/70">
-                <li>· 合约地址：0x3a8...fE23</li>
+                <li>· 合约地址：0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9</li>
                 <li>· 审计机构：SlowMist（2024 Q4）</li>
                 <li>· 项目方仅可发起治理代理，无法转出资产。</li>
               </ul>
@@ -258,23 +268,12 @@ export default function StakePage() {
                 抵押历史
               </p>
               <div className="mt-4 space-y-4 text-sm text-white/70">
-                {history.map((item) => (
-                  <div
-                    key={item.tx}
-                    className="rounded-2xl border border-white/10 bg-white/5 p-4"
-                  >
-                    <div className="flex items-center justify-between text-xs text-white/50">
-                      <span>{item.time}</span>
-                      <span>{item.status}</span>
-                    </div>
-                    <p className="mt-2 text-base text-white">
-                      {item.amount.toFixed(2)} vDOT · 锁定 {item.lockDays} 天
-                    </p>
-                    <p className="mt-1 font-mono text-xs text-white/50">
-                      Tx: {item.tx}
-                    </p>
-                  </div>
-                ))}
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
+                  <p className="text-white/50">抵押记录将从智能合约中读取</p>
+                  <p className="mt-1 text-xs text-white/40">
+                    当前抵押记录数: {Number(stakeCount)}
+                  </p>
+                </div>
               </div>
             </div>
           </aside>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, type PublicClient } from "viem";
 import { hardhat } from "viem/chains";
 import { getContractAddress } from "@/config/contracts";
 import vDOTAbi from "@/contracts/abis/vDOT.json";
@@ -76,9 +76,11 @@ export function useContractStats() {
 
         if (!isMounted) return;
 
-        // 计算参与地址数量（通过监听 Staked 事件）
-        // 注意：这是一个简化的实现，实际应该从事件日志中获取
-        const participantCount = (totalStaked as bigint) > 0n ? "1+" : "0";
+        // 从事件日志中获取参与地址数
+        const participantCount = await getParticipantCount(
+          client,
+          stakingContractAddress,
+        );
 
         setStats({
           totalMinted: formatNumber(totalSupply as bigint),
@@ -117,4 +119,44 @@ export function useContractStats() {
   }, []);
 
   return stats;
+}
+
+/**
+ * 从事件日志获取参与地址数
+ */
+async function getParticipantCount(
+  client: PublicClient,
+  stakingContractAddress: string,
+): Promise<string> {
+  try {
+    // 获取 Staked 事件日志
+    const logs = await client.getLogs({
+      address: stakingContractAddress as `0x${string}`,
+      event: {
+        type: "event",
+        name: "Staked",
+        inputs: [
+          { name: "user", type: "address", indexed: true },
+          { name: "amount", type: "uint256", indexed: false },
+          { name: "lockDuration", type: "uint256", indexed: false },
+          { name: "ticketsMinted", type: "uint256", indexed: false },
+        ],
+      },
+      fromBlock: 0n, // 从创世区块开始
+      toBlock: "latest",
+    });
+
+    // 统计唯一的用户地址
+    const uniqueUsers = new Set<string>();
+    logs.forEach((log) => {
+      if (log?.args?.user) {
+        uniqueUsers.add((log.args.user as string).toLowerCase());
+      }
+    });
+
+    return uniqueUsers.size.toString();
+  } catch (error) {
+    console.error("获取参与地址数失败:", error);
+    return "0";
+  }
 }

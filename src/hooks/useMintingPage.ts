@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useAccount, useWriteContract, useChainId, useBalance } from "wagmi";
+import {
+  useAccount,
+  useSendTransaction,
+  useWaitForTransactionReceipt,
+  useChainId,
+  useBalance,
+} from "wagmi";
 import { parseEther, formatEther } from "viem";
 import { getContractAddress } from "@/config/contracts";
-import vDOTAbi from "@/contracts/abis/vDOT.json";
 
 export function useMintingPage() {
   const { address } = useAccount();
@@ -22,8 +27,18 @@ export function useMintingPage() {
     },
   });
 
-  // 铸造功能
-  const { writeContract, isPending, isSuccess, error } = useWriteContract();
+  // 发送交易
+  const {
+    sendTransaction,
+    isPending,
+    error,
+    data: hash,
+  } = useSendTransaction();
+
+  // 等待交易确认
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  });
 
   // 1:1 兑换，无需复杂计算
   const vDOTAmount = useMemo(() => {
@@ -43,10 +58,8 @@ export function useMintingPage() {
       throw new Error("请输入有效的数量");
     }
 
-    writeContract({
-      address: vDOTAddress,
-      abi: vDOTAbi,
-      functionName: "deposit",
+    sendTransaction({
+      to: vDOTAddress,
       value: parseEther(amount), // 发送 ETH
     });
   };
@@ -60,7 +73,7 @@ export function useMintingPage() {
     balance: formattedBalance,
     vDOTAmount,
     deposit,
-    isPending,
+    isPending: isPending || isConfirming,
     isSuccess,
     error,
     vDOTAddress,

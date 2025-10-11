@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "./interfaces/IVotingTicket.sol";
 
 /**
  * @title StakingContract
@@ -16,7 +17,7 @@ contract StakingContract is Ownable, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     IERC20 public vDOTToken;
-    IERC20 public votingTicketToken;
+    IVotingTicket public votingTicketToken;
 
     // 锁定选项配置
     struct LockOption {
@@ -54,7 +55,7 @@ contract StakingContract is Ownable, ReentrancyGuard, Pausable {
         address _votingTicketToken
     ) Ownable(msg.sender) {
         vDOTToken = IERC20(_vDOTToken);
-        votingTicketToken = IERC20(_votingTicketToken);
+        votingTicketToken = IVotingTicket(_votingTicketToken);
 
         // 初始化锁定选项
         lockOptions[7] = LockOption(7 days, 10000, true);    // 7天 = 1.0倍
@@ -80,8 +81,7 @@ contract StakingContract is Ownable, ReentrancyGuard, Pausable {
         vDOTToken.safeTransferFrom(msg.sender, address(this), amount);
 
         // 铸造投票券给用户
-        // 注意：这里需要调用投票券合约的铸造函数
-        // votingTicketToken.mint(msg.sender, ticketsToMint);
+        votingTicketToken.mint(msg.sender, ticketsToMint);
 
         // 记录抵押信息
         StakeInfo memory stakeInfo = StakeInfo({
@@ -116,8 +116,7 @@ contract StakingContract is Ownable, ReentrancyGuard, Pausable {
         vDOTToken.safeTransfer(msg.sender, amount);
 
         // 销毁投票券
-        // 注意：这里需要调用投票券合约的销毁函数
-        // votingTicketToken.burn(msg.sender, stakeInfo.ticketsMinted);
+        votingTicketToken.burn(msg.sender, stakeInfo.ticketsMinted);
 
         // 更新状态
         stakeInfo.active = false;

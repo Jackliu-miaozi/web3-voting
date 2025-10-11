@@ -1,7 +1,13 @@
 "use client";
 
-import { useReadContract, useAccount, useChainId, useBalance } from "wagmi";
-import { useMemo } from "react";
+import {
+  useReadContract,
+  useAccount,
+  useChainId,
+  useBalance,
+  useWatchContractEvent,
+} from "wagmi";
+import { useMemo, useState, useEffect } from "react";
 import { getContractAddress } from "@/config/contracts";
 import vDOTAbi from "@/contracts/abis/vDOT.json";
 import VotingTicketAbi from "@/contracts/abis/VotingTicket.json";
@@ -66,6 +72,9 @@ export function useUserData(): UserData {
   const stakingContractAddress = getContractAddress(chainId, "StakingContract");
   const votingContractAddress = getContractAddress(chainId, "VotingContract");
 
+  // 获取抵押详情
+  const stakeDetails = useUserStakeDetails();
+
   // 读取原生代币余额（ETH/DOT）
   const { data: nativeBalance } = useBalance({
     address,
@@ -124,6 +133,7 @@ export function useUserData(): UserData {
     data: voteCount,
     isLoading: isLoadingVoteCount,
     error: voteCountError,
+    refetch: refetchVoteCount,
   } = useReadContract({
     address: votingContractAddress,
     abi: VotingContractAbi,
@@ -134,19 +144,65 @@ export function useUserData(): UserData {
     },
   });
 
+  // 监听 vDOT 转账事件
+  useWatchContractEvent({
+    address: vDOTAddress,
+    abi: vDOTAbi,
+    eventName: "Transfer",
+    args: {
+      from: address, // 监听用户相关的转账
+    },
+    onLogs: (_logs) => {
+      console.log("检测到 vDOT 转账事件，刷新数据");
+      // 当有转账时，重新获取数据
+      // 这里可以触发重新获取，但由于 useReadContract 已经有 refetchInterval，会自动更新
+    },
+  });
+
+  // 监听抵押事件
+  useWatchContractEvent({
+    address: stakingContractAddress,
+    abi: StakingContractAbi,
+    eventName: "Staked",
+    args: {
+      user: address,
+    },
+    onLogs: (_logs) => {
+      console.log("检测到抵押事件，刷新数据");
+      // 当有抵押时，重新获取数据
+      // 这里可以触发重新获取，但由于 useReadContract 已经有 refetchInterval，会自动更新
+    },
+  });
+
+  // 监听投票事件
+  useWatchContractEvent({
+    address: votingContractAddress,
+    abi: VotingContractAbi,
+    eventName: "Voted",
+    args: {
+      voter: address,
+    },
+    onLogs: (_logs) => {
+      console.log("检测到投票事件，刷新数据");
+      // 当有投票时，重新获取数据
+      void refetchVoteCount();
+    },
+  });
+
   // 计算用户数据
   const userData = useMemo(() => {
     const isLoading =
-      isLoadingVDOT ||
-      isLoadingTickets ||
-      isLoadingStakeCount ||
-      isLoadingVoteCount;
+      isLoadingVDOT ??
+      isLoadingTickets ??
+      isLoadingStakeCount ??
+      isLoadingVoteCount ??
+      stakeDetails.isLoading;
 
     const hasError = Boolean(
-      vDOTError || ticketError || stakeCountError || voteCountError,
+      vDOTError ?? ticketError ?? stakeCountError ?? voteCountError,
     );
 
-    const error = vDOTError || ticketError || stakeCountError || voteCountError;
+    const error = vDOTError ?? ticketError ?? stakeCountError ?? voteCountError;
 
     // 如果没有连接钱包，返回默认值
     if (!address) {
@@ -193,14 +249,14 @@ export function useUserData(): UserData {
       ? formatNumber(ticketBalance as bigint)
       : "0";
 
-    // 计算已抵押总量和投票权
-    // 注意：这里需要遍历所有抵押记录，暂时使用票券余额作为投票权
-    const formattedStakedAmount = "0"; // TODO: 需要实现抵押记录遍历
-    const formattedVotingPower = formattedTicketBalance;
+    // 使用真实的抵押数据
+    const formattedStakedAmount = formatNumber(stakeDetails.totalStaked);
+    const formattedVotingPower = formatNumber(stakeDetails.totalVotingPower);
 
     // 计算已铸造 vDOT（vDOT 余额 + 已抵押量）
     const totalVDOTValue =
-      (vDOTBalance ? (vDOTBalance as bigint) : BigInt(0)) + BigInt(0); // TODO: 加上已抵押量
+      (vDOTBalance ? (vDOTBalance as bigint) : BigInt(0)) +
+      stakeDetails.totalStaked;
     const formattedTotalVDOT = formatNumber(totalVDOTValue);
 
     // 检查是否已投票
@@ -224,6 +280,7 @@ export function useUserData(): UserData {
     vDOTBalance,
     ticketBalance,
     voteCount,
+    stakeDetails,
     isLoadingVDOT,
     isLoadingTickets,
     isLoadingStakeCount,
@@ -245,35 +302,104 @@ export function useUserStakeDetails() {
   const chainId = useChainId();
   const { address } = useAccount();
   const stakingContractAddress = getContractAddress(chainId, "StakingContract");
+  const [stakeDetails, setStakeDetails] = useState({
+    totalStaked: BigInt(0),
+    totalVotingPower: BigInt(0),
+    activeStakes: 0,
+    isLoading: false,
+  });
 
   // 读取用户抵押记录数量
-  const { data: stakeCount } = useReadContract({
+  const { data: stakeCount, refetch: refetchStakeCount } = useReadContract({
     address: stakingContractAddress,
     abi: StakingContractAbi,
     functionName: "getUserStakeCount",
     args: address ? [address] : undefined,
+    query: {
+      refetchInterval: 10000,
+    },
   });
 
   // 计算抵押详情
-  const stakeDetails = useMemo(() => {
-    if (!address || !stakeCount) {
-      return {
-        totalStaked: BigInt(0),
-        totalVotingPower: BigInt(0),
-        activeStakes: 0,
-      };
-    }
+  useEffect(() => {
+    const fetchStakeDetails = async () => {
+      if (!address || !stakeCount || Number(stakeCount) === 0) {
+        setStakeDetails({
+          totalStaked: BigInt(0),
+          totalVotingPower: BigInt(0),
+          activeStakes: 0,
+          isLoading: false,
+        });
+        return;
+      }
 
-    // TODO: 遍历所有抵押记录
-    // 这里需要循环调用 getUserStake(address, index) 来获取每个抵押记录
-    // 然后累加 amount 和 ticketsMinted
+      setStakeDetails((prev) => ({ ...prev, isLoading: true }));
 
-    return {
-      totalStaked: BigInt(0),
-      totalVotingPower: BigInt(0),
-      activeStakes: 0,
+      try {
+        // 创建公共客户端
+        const { createPublicClient, http } = await import("viem");
+        const { hardhat } = await import("viem/chains");
+
+        const client = createPublicClient({
+          chain: hardhat,
+          transport: http("http://127.0.0.1:8545"),
+        });
+
+        // 遍历所有抵押记录
+        const stakePromises = [];
+        for (let i = 0; i < Number(stakeCount); i++) {
+          stakePromises.push(
+            client.readContract({
+              address: stakingContractAddress,
+              abi: StakingContractAbi,
+              functionName: "getUserStake",
+              args: [address, BigInt(i)],
+            }),
+          );
+        }
+
+        // 等待所有抵押记录读取完成
+        const stakes = await Promise.all(stakePromises);
+
+        let totalStaked = BigInt(0);
+        let totalVotingPower = BigInt(0);
+        let activeStakes = 0;
+
+        stakes.forEach((stake: unknown) => {
+          const stakeData = stake as {
+            active: boolean;
+            amount: bigint;
+            ticketsMinted: bigint;
+          };
+          if (stakeData?.active) {
+            totalStaked += stakeData.amount;
+            totalVotingPower += stakeData.ticketsMinted;
+            activeStakes++;
+          }
+        });
+
+        setStakeDetails({
+          totalStaked,
+          totalVotingPower,
+          activeStakes,
+          isLoading: false,
+        });
+      } catch (error) {
+        console.error("获取抵押详情失败:", error);
+        setStakeDetails({
+          totalStaked: BigInt(0),
+          totalVotingPower: BigInt(0),
+          activeStakes: 0,
+          isLoading: false,
+        });
+      }
     };
-  }, [address, stakeCount]);
 
-  return stakeDetails;
+    void fetchStakeDetails();
+  }, [address, stakeCount, stakingContractAddress]);
+
+  return {
+    ...stakeDetails,
+    refetch: refetchStakeCount,
+  };
 }

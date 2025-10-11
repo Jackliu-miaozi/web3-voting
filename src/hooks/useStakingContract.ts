@@ -7,9 +7,11 @@ import {
   useChainId,
 } from "wagmi";
 import { useMemo } from "react";
+import { formatEther } from "viem";
 import { getContractAddress } from "@/config/contracts";
 import StakingContractAbi from "@/contracts/abis/StakingContract.json";
 import vDOTAbi from "@/contracts/abis/vDOT.json";
+import VotingTicketAbi from "@/contracts/abis/VotingTicket.json";
 
 /**
  * 用户抵押信息
@@ -41,6 +43,7 @@ export function useStakingContract() {
 
   const stakingContractAddress = getContractAddress(chainId, "StakingContract");
   const vDOTAddress = getContractAddress(chainId, "vDOT");
+  const votingTicketAddress = getContractAddress(chainId, "VotingTicket");
 
   // 写入合约方法
   const { writeContract, isPending, error: writeError } = useWriteContract();
@@ -69,6 +72,14 @@ export function useStakingContract() {
     address: stakingContractAddress,
     abi: StakingContractAbi,
     functionName: "getUserStakeCount",
+    args: address ? [address] : undefined,
+  });
+
+  // 读取用户投票券余额
+  const { data: ticketBalance } = useReadContract({
+    address: votingTicketAddress,
+    abi: VotingTicketAbi,
+    functionName: "balanceOf",
     args: address ? [address] : undefined,
   });
 
@@ -163,15 +174,22 @@ export function useStakingContract() {
       // 首先检查授权额度
       if (!allowance || (allowance as bigint) < amount) {
         // 需要先授权
+        console.log("需要先授权 vDOT 代币...");
         writeContract({
           address: vDOTAddress,
           abi: vDOTAbi,
           functionName: "approve",
           args: [stakingContractAddress, amount],
         });
+
+        // 等待授权完成（这里简化处理，实际应该监听交易确认）
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
       // 执行抵押
+      console.log(
+        `开始抵押 ${formatEther(amount)} vDOT，锁定 ${lockDuration} 天...`,
+      );
       writeContract({
         address: stakingContractAddress,
         abi: StakingContractAbi,
@@ -217,6 +235,7 @@ export function useStakingContract() {
     allowance: allowance ?? BigInt(0),
     stakeCount: stakeCount ?? BigInt(0),
     totalStaked: totalStaked ?? BigInt(0),
+    ticketBalance: ticketBalance ?? BigInt(0),
     lockOptions,
 
     // 方法
@@ -231,6 +250,7 @@ export function useStakingContract() {
     // 合约地址
     stakingContractAddress,
     vDOTAddress,
+    votingTicketAddress,
   };
 }
 
@@ -270,7 +290,7 @@ export function useUserStake(
 
   return {
     stakeInfo: stakeInfo as StakeInfo | undefined,
-    canUnstake: canUnstake || false,
+    canUnstake: canUnstake ?? false,
     isLoading,
     error,
   };
