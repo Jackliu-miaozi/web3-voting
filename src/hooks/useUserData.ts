@@ -199,7 +199,8 @@ export function useUserData(): UserData {
     const formattedVotingPower = formattedTicketBalance;
 
     // 计算已铸造 vDOT（vDOT 余额 + 已抵押量）
-    const totalVDOTValue = (vDOTBalance as bigint) + BigInt(0); // TODO: 加上已抵押量
+    const totalVDOTValue =
+      (vDOTBalance ? (vDOTBalance as bigint) : BigInt(0)) + BigInt(0); // TODO: 加上已抵押量
     const formattedTotalVDOT = formatNumber(totalVDOTValue);
 
     // 检查是否已投票

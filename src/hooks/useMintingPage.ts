@@ -14,7 +14,7 @@ export function useMintingPage() {
   // 获取合约地址
   const vDOTAddress = getContractAddress(chainId, "vDOT");
 
-  // 获取原生代币余额
+  // 获取 ETH 余额
   const { data: balance } = useBalance({
     address,
     query: {
@@ -25,33 +25,16 @@ export function useMintingPage() {
   // 铸造功能
   const { writeContract, isPending, isSuccess, error } = useWriteContract();
 
-  // 计算预计获得的 vDOT（0.98 比率）
-  const calculations = useMemo(() => {
+  // 1:1 兑换，无需复杂计算
+  const vDOTAmount = useMemo(() => {
     if (!amount || isNaN(parseFloat(amount))) {
-      return {
-        vDOTAmount: "0",
-        networkFee: "0",
-        serviceFee: "0",
-        total: "0",
-      };
+      return "0";
     }
-
-    const inputAmount = parseFloat(amount);
-    const exchangeRate = 0.98; // 1 DOT = 0.98 vDOT
-    const vDOTAmount = inputAmount * exchangeRate;
-    const networkFee = 0.12; // 固定网络费用
-    const serviceFee = 0.02; // 固定服务费用
-
-    return {
-      vDOTAmount: vDOTAmount.toFixed(2),
-      networkFee: networkFee.toFixed(2),
-      serviceFee: serviceFee.toFixed(2),
-      total: vDOTAmount.toFixed(2),
-    };
+    return parseFloat(amount).toFixed(4);
   }, [amount]);
 
-  // 铸造函数
-  const mint = async () => {
+  // 存入 ETH 铸造 vDOT
+  const deposit = () => {
     if (!address) {
       throw new Error("请先连接钱包");
     }
@@ -60,13 +43,11 @@ export function useMintingPage() {
       throw new Error("请输入有效的数量");
     }
 
-    const vDOTAmount = parseEther(calculations.vDOTAmount);
-
     writeContract({
       address: vDOTAddress,
       abi: vDOTAbi,
-      functionName: "mint",
-      args: [address, vDOTAmount],
+      functionName: "deposit",
+      value: parseEther(amount), // 发送 ETH
     });
   };
 
@@ -77,8 +58,8 @@ export function useMintingPage() {
     amount,
     setAmount,
     balance: formattedBalance,
-    calculations,
-    mint,
+    vDOTAmount,
+    deposit,
     isPending,
     isSuccess,
     error,

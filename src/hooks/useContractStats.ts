@@ -1,7 +1,8 @@
 "use client";
 
-import { useReadContract, useChainId } from "wagmi";
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
+import { createPublicClient, http } from "viem";
+import { hardhat } from "viem/chains";
 import { getContractAddress } from "@/config/contracts";
 import vDOTAbi from "@/contracts/abis/vDOT.json";
 import StakingContractAbi from "@/contracts/abis/StakingContract.json";
@@ -27,126 +28,93 @@ function formatNumber(value: bigint, decimals = 18): string {
 
 /**
  * 获取链上统计数据
+ * 使用公共客户端直接读取合约数据，不依赖钱包连接
  */
 export function useContractStats() {
-  const chainId = useChainId();
-
-  // 获取合约地址
-  const vDOTAddress = getContractAddress(chainId, "vDOT");
-  const stakingContractAddress = getContractAddress(chainId, "StakingContract");
-
-  // 读取 vDOT 总供应量（累计铸造量）
-  const {
-    data: totalSupply,
-    isLoading: isLoadingTotalSupply,
-    error: totalSupplyError,
-  } = useReadContract({
-    address: vDOTAddress,
-    abi: vDOTAbi,
-    functionName: "totalSupply",
-    query: {
-      refetchInterval: 10000, // 每10秒刷新一次
-    },
+  const [stats, setStats] = useState({
+    totalMinted: "0",
+    totalStaked: "0",
+    participantCount: "0",
+    isLoading: true,
+    hasError: false,
+    error: null as Error | null,
   });
 
-  // 读取抵押总量
-  const {
-    data: totalStaked,
-    isLoading: isLoadingTotalStaked,
-    error: totalStakedError,
-  } = useReadContract({
-    address: stakingContractAddress,
-    abi: StakingContractAbi,
-    functionName: "totalStaked",
-    query: {
-      refetchInterval: 10000, // 每10秒刷新一次
-    },
-  });
+  useEffect(() => {
+    let isMounted = true;
 
-  // 计算统计数据
-  const stats = useMemo(() => {
-    const isLoading = isLoadingTotalSupply || isLoadingTotalStaked;
-    const hasError = totalSupplyError || totalStakedError;
+    const fetchStats = async () => {
+      try {
+        // 创建公共客户端连接到 Hardhat 本地网络
+        const client = createPublicClient({
+          chain: hardhat,
+          transport: http("http://127.0.0.1:8545"),
+        });
 
-    // 如果正在加载或出错，返回默认值
-    if (isLoading || hasError) {
-      return {
-        totalMinted: "0",
-        totalStaked: "0",
-        participantCount: "0",
-        isLoading,
-        hasError,
-        error: totalSupplyError || totalStakedError,
-      };
-    }
+        // 获取合约地址
+        const vDOTAddress = getContractAddress(31337, "vDOT");
+        const stakingContractAddress = getContractAddress(
+          31337,
+          "StakingContract",
+        );
 
-    // 格式化数据
-    const formattedTotalMinted = totalSupply
-      ? formatNumber(totalSupply as bigint)
-      : "0";
-    const formattedTotalStaked = totalStaked
-      ? formatNumber(totalStaked as bigint)
-      : "0";
+        if (!isMounted) return;
 
-    // 注意：参与地址数暂时使用估算值
-    // 实际实现需要监听 Staked 事件或添加合约计数器
-    const estimatedParticipants = totalStaked
-      ? Math.max(1, Math.floor(Number(totalStaked) / (10 ** 18 * 100))) // 估算：每100 vDOT一个参与者
-      : 0;
+        // 并行读取合约数据
+        const [totalSupply, totalStaked] = await Promise.all([
+          client.readContract({
+            address: vDOTAddress,
+            abi: vDOTAbi,
+            functionName: "totalSupply",
+          }),
+          client.readContract({
+            address: stakingContractAddress,
+            abi: StakingContractAbi,
+            functionName: "totalStaked",
+          }),
+        ]);
 
-    return {
-      totalMinted: formattedTotalMinted,
-      totalStaked: formattedTotalStaked,
-      participantCount: estimatedParticipants.toLocaleString("zh-CN"),
-      isLoading: false,
-      hasError: false,
-      error: null,
+        if (!isMounted) return;
+
+        // 计算参与地址数量（通过监听 Staked 事件）
+        // 注意：这是一个简化的实现，实际应该从事件日志中获取
+        const participantCount = (totalStaked as bigint) > 0n ? "1+" : "0";
+
+        setStats({
+          totalMinted: formatNumber(totalSupply as bigint),
+          totalStaked: formatNumber(totalStaked as bigint),
+          participantCount,
+          isLoading: false,
+          hasError: false,
+          error: null,
+        });
+      } catch (error) {
+        if (!isMounted) return;
+
+        console.error("读取合约数据失败:", error);
+        setStats({
+          totalMinted: "0",
+          totalStaked: "0",
+          participantCount: "0",
+          isLoading: false,
+          hasError: true,
+          error: error as Error,
+        });
+      }
     };
-  }, [
-    totalSupply,
-    totalStaked,
-    isLoadingTotalSupply,
-    isLoadingTotalStaked,
-    totalSupplyError,
-    totalStakedError,
-  ]);
+
+    fetchStats().catch(console.error);
+
+    // 设置定时刷新
+    const interval = setInterval(() => {
+      fetchStats().catch(console.error);
+    }, 10000); // 每10秒刷新一次
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   return stats;
-}
-
-/**
- * 获取参与地址数的 Hook（需要监听事件）
- * 这是一个更复杂的实现，需要从链上事件中统计
- */
-export function useParticipantCount() {
-  const chainId = useChainId();
-  const stakingContractAddress = getContractAddress(chainId, "StakingContract");
-
-  // TODO: 实现事件监听来统计参与地址数
-  // 这需要：
-  // 1. 使用 viem 的 getLogs 读取所有 Staked 事件
-  // 2. 提取唯一的用户地址
-  // 3. 返回去重后的地址数量
-
-  // 暂时返回估算值
-  const { data: totalStaked } = useReadContract({
-    address: stakingContractAddress,
-    abi: StakingContractAbi,
-    functionName: "totalStaked",
-  });
-
-  const participantCount = useMemo(() => {
-    if (!totalStaked) return 0;
-
-    // 简单估算：假设平均每个参与者抵押 100 vDOT
-    const averageStakePerUser = BigInt(100 * 10 ** 18);
-    const estimatedCount = Number(totalStaked) / Number(averageStakePerUser);
-
-    return Math.max(1, Math.floor(estimatedCount));
-  }, [totalStaked]);
-
-  return {
-    participantCount,
-    isLoading: false,
-  };
 }
