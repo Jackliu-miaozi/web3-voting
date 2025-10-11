@@ -1,273 +1,365 @@
-"use client";
-
 import {
+  useAccount,
   useReadContract,
   useWriteContract,
-  useAccount,
-  useChainId,
+  useWaitForTransactionReceipt,
 } from "wagmi";
-import { useMemo } from "react";
+import { formatEther, createPublicClient, http } from "viem";
 import { getContractAddress } from "@/config/contracts";
-import VotingContractAbi from "@/contracts/abis/VotingContract.json";
-import VotingTicketAbi from "@/contracts/abis/VotingTicket.json";
+import { useChainId } from "wagmi";
+import { hardhat } from "viem/chains";
 
-/**
- * 投票选项枚举
- */
-export enum VoteOption {
-  TWO_YEARS = 0, // 2年内
-  FOUR_YEARS = 1, // 4年内
-  SIX_YEARS = 2, // 6年内
-  EIGHT_YEARS = 3, // 8年内
-  TEN_YEARS = 4, // 10年内
-  NEVER = 5, // 永不会
-}
+// Import ABIs
+import votingContractAbi from "@/contracts/abis/VotingContract.json";
+import votingTicketAbi from "@/contracts/abis/VotingTicket.json";
 
-/**
- * 投票选项配置
- */
-export const VOTE_OPTIONS = [
-  { value: VoteOption.TWO_YEARS, label: "2年内", description: "2025-2027年" },
-  { value: VoteOption.FOUR_YEARS, label: "4年内", description: "2025-2029年" },
-  { value: VoteOption.SIX_YEARS, label: "6年内", description: "2025-2031年" },
-  { value: VoteOption.EIGHT_YEARS, label: "8年内", description: "2025-2033年" },
-  { value: VoteOption.TEN_YEARS, label: "10年内", description: "2025-2035年" },
-  {
-    value: VoteOption.NEVER,
-    label: "永不会",
-    description: "BTC将永远保持第一",
-  },
-] as const;
-
-/**
- * 用户投票信息
- */
-export interface UserVote {
-  option: VoteOption;
+// Types for contract responses
+interface UserVote {
+  predictedYear: bigint;
   ticketsUsed: bigint;
   votingPeriodId: bigint;
   timestamp: bigint;
   claimed: boolean;
 }
 
-/**
- * 投票统计信息
- */
-export interface VoteStats {
-  totalTickets: bigint;
-  optionTickets: Record<VoteOption, bigint>;
-}
+type VotingPeriod = [bigint, bigint, boolean, boolean, bigint]; // [startTime, endTime, active, resolved, correctAnswerYear]
 
-/**
- * 投票合约交互 Hook
- */
 export function useVotingContract() {
-  const chainId = useChainId();
   const { address } = useAccount();
+  const chainId = useChainId();
 
+  // Contract addresses
   const votingContractAddress = getContractAddress(chainId, "VotingContract");
   const votingTicketAddress = getContractAddress(chainId, "VotingTicket");
 
-  // 写入合约方法
-  const { writeContract, isPending, error: writeError } = useWriteContract();
-
-  // 读取用户投票券余额
-  const { data: ticketBalance } = useReadContract({
-    address: votingTicketAddress,
-    abi: VotingTicketAbi,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
+  // Create public client for reading contract data
+  const publicClient = createPublicClient({
+    chain: hardhat,
+    transport: http("http://localhost:8545"),
   });
 
-  // 读取用户对投票合约的授权额度
-  const { data: ticketAllowance } = useReadContract({
+  // Read user's voting ticket balance
+  const { data: ticketBalance, refetch: refetchTicketBalance } =
+    useReadContract({
+      address: votingTicketAddress,
+      abi: votingTicketAbi,
+      functionName: "balanceOf",
+      args: address ? [address] : undefined,
+      query: {
+        enabled: !!address,
+        refetchInterval: 5000, // 每5秒自动刷新
+        refetchOnWindowFocus: true, // 窗口聚焦时刷新
+      },
+    });
+
+  // Read user's vote count
+  const { data: userVoteCount } = useReadContract({
+    address: votingContractAddress,
+    abi: votingContractAbi,
+    functionName: "getUserVoteCount",
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address,
+      refetchInterval: 5000,
+      refetchOnWindowFocus: true,
+    },
+  });
+
+  // Read current voting period
+  const { data: currentVotingPeriod } = useReadContract({
+    address: votingContractAddress,
+    abi: votingContractAbi,
+    functionName: "currentVotingPeriodId",
+    query: {
+      enabled: !!address,
+    },
+  });
+
+  // Read voting period info
+  const { data: votingPeriodInfo } = useReadContract({
+    address: votingContractAddress,
+    abi: votingContractAbi,
+    functionName: "votingPeriods",
+    args: currentVotingPeriod ? [currentVotingPeriod] : undefined,
+    query: {
+      enabled: !!currentVotingPeriod,
+    },
+  });
+
+  // Check allowance for voting tickets
+  const { data: allowance } = useReadContract({
     address: votingTicketAddress,
-    abi: VotingTicketAbi,
+    abi: votingTicketAbi,
     functionName: "allowance",
     args:
       address && votingContractAddress
         ? [address, votingContractAddress]
         : undefined,
+    query: {
+      enabled: !!address && !!votingContractAddress,
+    },
   });
 
-  // 读取当前投票期ID
-  const { data: currentVotingPeriodId } = useReadContract({
-    address: votingContractAddress,
-    abi: VotingContractAbi,
-    functionName: "currentVotingPeriodId",
-  });
+  // Write contract for voting ticket approval
+  const {
+    writeContract: approveVotingTickets,
+    data: approvalTxHash,
+    isPending: isApproving,
+    error: approvalError,
+  } = useWriteContract();
 
-  // 读取当前投票期信息
-  const { data: currentVotingPeriod } = useReadContract({
-    address: votingContractAddress,
-    abi: VotingContractAbi,
-    functionName: "votingPeriods",
-    args: currentVotingPeriodId ? [currentVotingPeriodId] : undefined,
-  });
+  // Write contract for voting
+  const {
+    writeContract: vote,
+    data: voteTxHash,
+    isPending: isVoting,
+    error: voteError,
+  } = useWriteContract();
 
-  // 读取用户投票记录数量
-  const { data: userVoteCount } = useReadContract({
-    address: votingContractAddress,
-    abi: VotingContractAbi,
-    functionName: "getUserVoteCount",
-    args: address ? [address] : undefined,
-  });
+  // Wait for approval transaction
+  const { data: approvalReceipt, isLoading: isConfirmingApproval } =
+    useWaitForTransactionReceipt({
+      hash: approvalTxHash,
+    });
 
-  // 检查用户是否已投票
-  const hasVoted = useMemo(() => {
-    return userVoteCount ? Number(userVoteCount) > 0 : false;
-  }, [userVoteCount]);
+  // Wait for vote transaction
+  const { data: voteReceipt, isLoading: isConfirmingVote } =
+    useWaitForTransactionReceipt({
+      hash: voteTxHash,
+    });
 
-  // 投票方法
-  const vote = async (option: VoteOption, ticketsToUse: bigint) => {
+  // Approval function
+  const approve = async (amount: bigint) => {
+    if (!address || !votingContractAddress) {
+      throw new Error("请先连接钱包");
+    }
+
+    approveVotingTickets({
+      address: votingTicketAddress,
+      abi: votingTicketAbi,
+      functionName: "approve",
+      args: [votingContractAddress, amount],
+    });
+  };
+
+  // Vote function
+  const submitVote = async (predictedYear: number, ticketsToUse: bigint) => {
     if (!address) {
       throw new Error("请先连接钱包");
     }
 
-    if (!ticketBalance || (ticketBalance as bigint) < ticketsToUse) {
-      throw new Error("投票券余额不足");
+    if (!votingContractAddress) {
+      throw new Error("投票合约地址未配置");
     }
 
-    try {
-      // 首先检查授权额度
-      if (!ticketAllowance || (ticketAllowance as bigint) < ticketsToUse) {
-        // 需要先授权投票券
-        writeContract({
-          address: votingTicketAddress,
-          abi: VotingTicketAbi,
-          functionName: "approve",
-          args: [votingContractAddress, ticketsToUse],
-        });
+    // Check if we have enough allowance
+    const currentAllowance = (allowance as bigint) || 0n;
+    if (currentAllowance < ticketsToUse) {
+      throw new Error("投票券授权不足，请先授权");
+    }
+
+    vote({
+      address: votingContractAddress,
+      abi: votingContractAbi,
+      functionName: "vote",
+      args: [BigInt(predictedYear), ticketsToUse],
+    });
+  };
+
+  // Complete voting flow (approve if needed, then vote)
+  const completeVote = async (predictedYear: number, ticketsToUse: bigint) => {
+    if (!address) {
+      throw new Error("请先连接钱包");
+    }
+
+    const currentAllowance = (allowance as bigint) || 0n;
+
+    // If allowance is insufficient, approve first
+    if (currentAllowance < ticketsToUse) {
+      await approve(ticketsToUse);
+
+      // Wait for approval to complete
+      return new Promise<void>((resolve, reject) => {
+        const checkApproval = () => {
+          if (approvalReceipt?.status === "success") {
+            // Approval successful, now vote
+            void submitVote(predictedYear, ticketsToUse);
+
+            // Wait for vote to complete
+            const checkVote = () => {
+              if (voteReceipt?.status === "success") {
+                resolve();
+              } else if (voteReceipt?.status === "reverted") {
+                reject(new Error("投票失败"));
+              } else {
+                // Still waiting for vote
+                setTimeout(checkVote, 1000);
+              }
+            };
+
+            // Start checking vote after a short delay
+            setTimeout(checkVote, 1000);
+          } else if (approvalReceipt?.status === "reverted") {
+            reject(new Error("投票券授权失败"));
+          } else {
+            // Still waiting for approval
+            setTimeout(checkApproval, 1000);
+          }
+        };
+
+        // Start checking after a short delay
+        setTimeout(checkApproval, 1000);
+      });
+    } else {
+      // Sufficient allowance, vote directly
+      void submitVote(predictedYear, ticketsToUse);
+
+      // Wait for vote to complete
+      return new Promise<void>((resolve, reject) => {
+        const checkVote = () => {
+          if (voteReceipt?.status === "success") {
+            resolve();
+          } else if (voteReceipt?.status === "reverted") {
+            reject(new Error("投票失败"));
+          } else {
+            // Still waiting for vote
+            setTimeout(checkVote, 1000);
+          }
+        };
+
+        // Start checking after a short delay
+        setTimeout(checkVote, 1000);
+      });
+    }
+  };
+
+  // Get user voting history
+  const getUserVotingHistory = async () => {
+    console.log(
+      "🔍 getUserVotingHistory called - address:",
+      address,
+      "userVoteCount:",
+      userVoteCount?.toString(),
+    );
+
+    if (!address || !userVoteCount) {
+      console.log("❌ No address or vote count, returning empty array");
+      return [];
+    }
+
+    const voteCount = Number(userVoteCount);
+    console.log("📊 Processing", voteCount, "votes for address:", address);
+    const history = [];
+
+    for (let i = 0; i < voteCount; i++) {
+      try {
+        const vote = (await publicClient.readContract({
+          address: votingContractAddress,
+          abi: votingContractAbi,
+          functionName: "getUserVote",
+          args: [address, BigInt(i)],
+        })) as UserVote;
+
+        console.log(`  Vote data for index ${i}:`, vote);
+
+        // Check if vote data is valid
+        if (!vote || typeof vote !== "object" || !vote.predictedYear) {
+          console.error(`Invalid vote data for index ${i}:`, vote);
+          continue;
+        }
+
+        const votingPeriodId = vote.votingPeriodId;
+        if (!votingPeriodId) {
+          console.error(`No votingPeriodId for vote ${i}:`, vote);
+          continue;
+        }
+
+        // Get voting period info
+        const period = (await publicClient.readContract({
+          address: votingContractAddress,
+          abi: votingContractAbi,
+          functionName: "votingPeriods",
+          args: [votingPeriodId],
+        })) as VotingPeriod;
+
+        console.log(
+          `  Period data for votingPeriodId ${votingPeriodId}:`,
+          period,
+        );
+
+        // Check if period data is valid
+        if (!period || period.length < 5) {
+          console.error(
+            `Invalid period data for votingPeriodId ${votingPeriodId}:`,
+            period,
+          );
+          continue;
+        }
+
+        // Format the vote data
+        const voteData = {
+          index: i,
+          predictedYear: Number(vote.predictedYear), // predictedYear
+          ticketsUsed: formatEther(vote.ticketsUsed), // ticketsUsed
+          votingPeriodId: Number(vote.votingPeriodId), // votingPeriodId
+          timestamp: new Date(Number(vote.timestamp) * 1000), // timestamp
+          claimed: vote.claimed, // claimed
+          periodStartTime: new Date(Number(period[0]) * 1000),
+          periodEndTime: new Date(Number(period[1]) * 1000),
+          periodActive: period[2],
+          periodResolved: period[3],
+          correctAnswerYear: Number(period[4]),
+        };
+
+        history.push(voteData);
+      } catch (error) {
+        console.error(`Error fetching vote ${i}:`, error);
       }
-
-      // 执行投票
-      writeContract({
-        address: votingContractAddress,
-        abi: VotingContractAbi,
-        functionName: "vote",
-        args: [option, ticketsToUse],
-      });
-    } catch (error) {
-      console.error("投票失败:", error);
-      throw error;
-    }
-  };
-
-  // 领取奖励方法
-  const claimReward = async (voteIndex: number) => {
-    if (!address) {
-      throw new Error("请先连接钱包");
     }
 
-    try {
-      writeContract({
-        address: votingContractAddress,
-        abi: VotingContractAbi,
-        functionName: "claimReward",
-        args: [BigInt(voteIndex)],
-      });
-    } catch (error) {
-      console.error("领取奖励失败:", error);
-      throw error;
-    }
+    // Sort by timestamp (newest first)
+    return history.sort(
+      (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
+    );
   };
 
   return {
-    // 数据
-    ticketBalance: ticketBalance ?? BigInt(0),
-    ticketAllowance: ticketAllowance ?? BigInt(0),
-    currentVotingPeriodId: currentVotingPeriodId ?? BigInt(0),
-    currentVotingPeriod,
-    userVoteCount: userVoteCount ?? BigInt(0),
-    hasVoted,
+    // Data
+    ticketBalance: (ticketBalance as bigint) || 0n,
+    currentVotingPeriod: (currentVotingPeriod as bigint) || 0n,
+    votingPeriodInfo,
+    allowance: (allowance as bigint) || 0n,
+    userVoteCount: (userVoteCount as bigint) || 0n,
 
-    // 方法
-    vote,
-    claimReward,
+    // Transaction hashes
+    approvalTxHash,
+    voteTxHash,
 
-    // 状态
-    isPending,
-    error: writeError,
+    // Loading states
+    isApproving,
+    isVoting,
+    isConfirmingApproval,
+    isConfirmingVote,
 
-    // 合约地址
-    votingContractAddress,
-    votingTicketAddress,
-  };
-}
+    // Error states
+    approvalError,
+    voteError,
 
-/**
- * 获取用户特定投票记录的 Hook
- */
-export function useUserVote(
-  userAddress: string | undefined,
-  voteIndex: number,
-) {
-  const chainId = useChainId();
-  const votingContractAddress = getContractAddress(chainId, "VotingContract");
+    // Receipts
+    approvalReceipt,
+    voteReceipt,
 
-  const {
-    data: userVote,
-    isLoading,
-    error,
-  } = useReadContract({
-    address: votingContractAddress,
-    abi: VotingContractAbi,
-    functionName: "getUserVote",
-    args:
-      userAddress && voteIndex >= 0
-        ? [userAddress, BigInt(voteIndex)]
-        : undefined,
-  });
+    // Functions
+    approve,
+    submitVote,
+    completeVote,
+    refetchTicketBalance,
+    getUserVotingHistory,
 
-  return {
-    userVote: userVote as UserVote | undefined,
-    isLoading,
-    error,
-  };
-}
-
-/**
- * 获取投票统计的 Hook
- */
-export function useVoteStats(votingPeriodId?: bigint) {
-  const chainId = useChainId();
-  const votingContractAddress = getContractAddress(chainId, "VotingContract");
-
-  const {
-    data: voteStats,
-    isLoading,
-    error,
-  } = useReadContract({
-    address: votingContractAddress,
-    abi: VotingContractAbi,
-    functionName: "getVotingStats",
-    args: votingPeriodId ? [votingPeriodId] : undefined,
-  });
-
-  // 格式化投票统计数据
-  const formattedStats = useMemo(() => {
-    if (!voteStats) return null;
-
-    const [totalTickets, optionTicketsArray] = voteStats as [bigint, bigint[]];
-
-    const optionTickets: Record<VoteOption, bigint> = {
-      [VoteOption.TWO_YEARS]: optionTicketsArray[0] ?? BigInt(0),
-      [VoteOption.FOUR_YEARS]: optionTicketsArray[1] ?? BigInt(0),
-      [VoteOption.SIX_YEARS]: optionTicketsArray[2] ?? BigInt(0),
-      [VoteOption.EIGHT_YEARS]: optionTicketsArray[3] ?? BigInt(0),
-      [VoteOption.TEN_YEARS]: optionTicketsArray[4] ?? BigInt(0),
-      [VoteOption.NEVER]: optionTicketsArray[5] ?? BigInt(0),
-    };
-
-    return {
-      totalTickets,
-      optionTickets,
-    } as VoteStats;
-  }, [voteStats]);
-
-  return {
-    stats: formattedStats,
-    isLoading,
-    error,
+    // Computed values
+    isPending:
+      isApproving || isVoting || isConfirmingApproval || isConfirmingVote,
+    hasError: !!approvalError || !!voteError,
+    error: approvalError ?? voteError,
   };
 }

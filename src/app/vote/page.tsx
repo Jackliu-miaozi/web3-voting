@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { useWalletContext } from "@/contexts/WalletContext";
-import { useStakingContract } from "@/hooks/useStakingContract";
+import { useVotingContract } from "@/hooks/useVotingContract";
+import { VotingHistory } from "@/components/voting/VotingHistory";
+import { parseEther } from "viem";
 
 const generateYearOptions = () => {
   const options = [];
@@ -30,25 +31,13 @@ const OPTIONS = generateYearOptions();
 
 export default function VotePage() {
   const [selected, setSelected] = useState<number | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [votedOption, setVotedOption] = useState<string>("");
   const [customYear, setCustomYear] = useState<string>("");
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [ticketsToVote, setTicketsToVote] = useState<string>("");
   const router = useRouter();
-  const [resultPreview] = useState([
-    { label: "2025-2027年", percentage: 15 },
-    { label: "2027-2029年", percentage: 18 },
-    { label: "2029-2031年", percentage: 22 },
-    { label: "2031-2033年", percentage: 16 },
-    { label: "2033-2035年", percentage: 12 },
-    { label: "其他年份", percentage: 17 },
-  ]);
-
-  // 从智能合约获取真实的投票券余额
-  const { ticketBalance } = useStakingContract();
-  const tickets = Number(ticketBalance) / 1e18; // 转换为可读格式
 
   const {
     isConnected: walletConnected,
@@ -56,11 +45,32 @@ export default function VotePage() {
     isLoading: connecting,
   } = useWalletContext();
 
-  const connectWallet = () => connect("evm");
+  // 使用投票合约hook
+  const {
+    ticketBalance,
+    completeVote,
+    isPending,
+    voteReceipt,
+    refetchTicketBalance,
+  } = useVotingContract();
+
+  const tickets = Number(ticketBalance) / 1e18; // 转换为可读格式
+
+  const connectWallet = () => void connect("evm");
+
+  // 监听投票交易确认
+  useEffect(() => {
+    if (voteReceipt && voteReceipt.status === "success") {
+      setShowSuccessModal(true);
+      setHasSubmitted(true);
+      // 刷新投票券余额
+      void refetchTicketBalance();
+    }
+  }, [voteReceipt, refetchTicketBalance]);
 
   const handleSubmit = async () => {
     if (!walletConnected) {
-      await connectWallet();
+      connectWallet();
       return;
     }
 
@@ -81,42 +91,58 @@ export default function VotePage() {
       const selectedOption = OPTIONS.find(
         (option) => option.value === selected,
       );
-      selectedLabel = selectedOption?.label || "";
+      selectedLabel = selectedOption?.label ?? "";
     }
 
     if (!selectedValue) return;
 
-    setIsSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1400));
-    setIsSubmitting(false);
-    setHasSubmitted(true);
+    // 验证投票券数量
+    const ticketsToUseNumber = parseFloat(ticketsToVote);
+    if (!ticketsToVote || ticketsToUseNumber <= 0) {
+      alert("请输入有效的投票券数量");
+      return;
+    }
 
-    setVotedOption(selectedLabel);
-    setShowSuccessModal(true);
+    if (ticketsToUseNumber > tickets) {
+      alert("投票券余额不足");
+      return;
+    }
+
+    try {
+      // 转换为BigInt格式
+      const ticketsToUseBigInt = parseEther(ticketsToVote);
+
+      // 调用智能合约进行投票
+      await completeVote(selectedValue, ticketsToUseBigInt);
+
+      // 设置投票选项用于显示
+      setVotedOption(selectedLabel);
+
+      // 清空投票券数量输入
+      setTicketsToVote("");
+    } catch (error) {
+      console.error("投票失败:", error);
+
+      // 显示更详细的错误信息
+      let errorMessage = "未知错误";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+
+        // 处理常见的错误类型
+        if (errorMessage.includes("投票期已结束")) {
+          errorMessage = "当前投票期已结束，请等待新的投票期";
+        } else if (errorMessage.includes("投票券授权不足")) {
+          errorMessage = "投票券授权不足，请重新授权";
+        } else if (errorMessage.includes("投票券余额不足")) {
+          errorMessage = "投票券余额不足，请检查余额";
+        } else if (errorMessage.includes("用户拒绝")) {
+          errorMessage = "用户取消了交易";
+        }
+      }
+
+      alert(`投票失败: ${errorMessage}`);
+    }
   };
-
-  const summary = useMemo(
-    () => [
-      { label: "投票券余额", value: `${tickets.toFixed(2)} 张` },
-      {
-        label: "当前选择",
-        value:
-          showCustomInput && customYear
-            ? (() => {
-                const inputYear = parseInt(customYear);
-                const rangeStart =
-                  inputYear % 2 === 0 ? inputYear - 1 : inputYear;
-                const rangeEnd = rangeStart + 2;
-                return `${rangeStart}-${rangeEnd}年`;
-              })()
-            : selected
-              ? OPTIONS.find((o) => o.value === selected)?.label || "未选择"
-              : "未选择",
-      },
-      { label: "Chainlink 状态", value: "监听中 (24h/次)" },
-    ],
-    [tickets, selected, showCustomInput, customYear],
-  );
 
   return (
     <>
@@ -237,7 +263,7 @@ export default function VotePage() {
           </div>
         </div>
 
-        <section className="grid gap-6 lg:grid-cols-[1.6fr,1fr]">
+        <section className="mx-auto max-w-4xl">
           <div className="space-y-6">
             <div className="rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur-xl">
               <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -338,7 +364,39 @@ export default function VotePage() {
                 </button>
               </div>
 
-              <div className="mt-8 flex flex-wrap gap-3 text-xs text-white/60">
+              {/* 投票券数量输入 */}
+              <div className="mt-6">
+                <label className="mb-2 block text-sm font-medium text-white">
+                  使用投票券数量
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="0.01"
+                    max={tickets}
+                    step="0.01"
+                    value={ticketsToVote}
+                    onChange={(e) => setTicketsToVote(e.target.value)}
+                    placeholder="输入投票券数量"
+                    className="flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                    disabled={hasSubmitted || isPending}
+                  />
+                  <Button
+                    onClick={() => setTicketsToVote(tickets.toString())}
+                    variant="outline"
+                    size="sm"
+                    disabled={hasSubmitted || isPending}
+                    className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+                  >
+                    全部
+                  </Button>
+                </div>
+                <p className="mt-1 text-xs text-white/60">
+                  可用余额: {tickets.toFixed(2)} 张投票券
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-3 text-xs text-white/60">
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
                   投票券将一次性投入所选年份
                 </span>
@@ -352,94 +410,30 @@ export default function VotePage() {
 
               <Button
                 onClick={handleSubmit}
-                disabled={hasSubmitted || !selected || isSubmitting}
-                className="mt-8 w-full border-0 bg-gradient-to-r from-purple-500 to-pink-500 text-lg text-white hover:from-purple-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={
+                  hasSubmitted || !selected || isPending || !ticketsToVote
+                }
+                className="mt-6 w-full border-0 bg-gradient-to-r from-purple-500 to-pink-500 text-lg text-white hover:from-purple-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {hasSubmitted
                   ? "已提交，等待开奖"
-                  : isSubmitting
-                    ? "提交中..."
-                    : walletConnected
-                      ? "确认投票"
-                      : "连接钱包后投票"}
+                  : isPending
+                    ? "处理中..."
+                    : !walletConnected
+                      ? "连接钱包"
+                      : !selected
+                        ? "请选择预测年份"
+                        : !ticketsToVote
+                          ? "请输入投票券数量"
+                          : "提交预测"}
               </Button>
               <p className="mt-3 text-center text-xs text-white/50">
                 开奖结果将同步至您的账户和邮箱通知，NFT 奖励将在 24 小时内发放。
               </p>
             </div>
 
-            <section className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-lg font-semibold">投票历史</h2>
-                <span className="text-xs text-white/60">
-                  示例数据 · 实际记录将读取链上 Tx
-                </span>
-              </div>
-              <div className="mt-4 space-y-4 text-sm text-white/70">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="flex items-center justify-between text-xs text-white/50">
-                    <span>2025/02/21 18:05</span>
-                    <span>已提交</span>
-                  </div>
-                  <p className="mt-2 text-base text-white">选择：6 年内</p>
-                  <p className="mt-1 font-mono text-xs text-white/50">
-                    Tx: 0x912e...af1
-                  </p>
-                </div>
-              </div>
-            </section>
+            <VotingHistory />
           </div>
-
-          <aside className="space-y-6">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
-              <p className="text-xs tracking-wide text-white/60 uppercase">
-                我的概览
-              </p>
-              <ul className="mt-4 space-y-3 text-sm text-white/70">
-                {summary.map((item) => (
-                  <li
-                    key={item.label}
-                    className="flex items-center justify-between"
-                  >
-                    <span>{item.label}</span>
-                    <span className="text-white">{item.value}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                asChild
-                variant="outline"
-                className="mt-6 w-full border-white/20 bg-white/5 text-white hover:bg-white/10"
-              >
-                <Link href="/reveal">查看开奖信息</Link>
-              </Button>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
-              <p className="text-xs tracking-wide text-white/60 uppercase">
-                实时趋势
-              </p>
-              <div className="mt-4 space-y-3 text-sm text-white/70">
-                {resultPreview.map((item) => (
-                  <div key={item.label}>
-                    <div className="flex items-center justify-between">
-                      <span>{item.label}</span>
-                      <span className="text-white">{item.percentage}%</span>
-                    </div>
-                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-pink-500 to-purple-500"
-                        style={{ width: `${item.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-4 text-xs text-white/50">
-                数据每 30 秒刷新一次，展示全平台投票趋势，帮助您了解市场共识。
-              </p>
-            </div>
-          </aside>
         </section>
       </main>
     </>
