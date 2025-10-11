@@ -10,17 +10,13 @@ import { Input } from "@/components/ui/input";
 import { useStakingContract } from "@/hooks/useStakingContract";
 
 const LOCK_OPTIONS = [
-  { label: "7 天 (默认)", value: 7, multiplier: 1 },
-  { label: "30 天", value: 30, multiplier: 1.1 },
-  { label: "90 天", value: 90, multiplier: 1.3 },
+  { label: "直到开奖后解锁", value: 0, multiplier: 1.5 },
 ] as const;
 
 export default function StakePage() {
   const { isConnected } = useAccount();
   const [stakeAmount, setStakeAmount] = useState("");
-  const [selectedLock, setSelectedLock] = useState<
-    (typeof LOCK_OPTIONS)[number]
-  >(LOCK_OPTIONS[0]);
+  const selectedLock = LOCK_OPTIONS[0];
 
   const { vDOTBalance, stakeCount, ticketBalance, stake, isPending, error } =
     useStakingContract();
@@ -155,28 +151,16 @@ export default function StakePage() {
                 <p className="mb-2 text-xs tracking-wide text-white/60 uppercase">
                   锁定周期
                 </p>
-                <div className="grid gap-2 md:grid-cols-3">
-                  {LOCK_OPTIONS.map((option) => {
-                    const active = option.value === selectedLock.value;
-                    return (
-                      <button
-                        key={option.value}
-                        onClick={() => setSelectedLock(option)}
-                        className={`rounded-2xl border p-4 text-left transition ${
-                          active
-                            ? "border-white/40 bg-white/15"
-                            : "border-white/10 bg-white/5 hover:border-white/20"
-                        }`}
-                      >
-                        <p className="text-sm font-medium text-white">
-                          {option.label}
-                        </p>
-                        <p className="mt-1 text-xs text-white/60">
-                          奖励倍率 x{option.multiplier.toFixed(2)}
-                        </p>
-                      </button>
-                    );
-                  })}
+                <div className="rounded-2xl border border-white/20 bg-white/10 p-4">
+                  <p className="text-sm font-medium text-white">
+                    {selectedLock.label}
+                  </p>
+                  <p className="mt-1 text-xs text-white/60">
+                    奖励倍率 x{selectedLock.multiplier.toFixed(2)}
+                  </p>
+                  <p className="mt-2 text-xs text-white/50">
+                    抵押的 vDOT 将在 Chainlink 开奖后自动解锁
+                  </p>
                 </div>
               </div>
 
@@ -199,7 +183,7 @@ export default function StakePage() {
                 </div>
                 <div className="flex items-center justify-between border-t border-white/10 pt-3 text-white">
                   <span>预计可解锁时间</span>
-                  <span>锁定后第 {selectedLock.value} 天</span>
+                  <span>Chainlink 开奖后</span>
                 </div>
               </div>
 
@@ -239,7 +223,7 @@ export default function StakePage() {
                 {isPending ? "抵押处理中..." : "确认抵押"}
               </Button>
               <p className="mt-3 text-center text-xs text-white/50">
-                解锁需要经历安全等待期，期间可查看抵押状态但无法提前转出。
+                抵押的 vDOT 将锁定至 Chainlink 开奖，开奖后自动解锁。
               </p>
             </div>
           </div>

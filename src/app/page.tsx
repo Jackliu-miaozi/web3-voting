@@ -1,201 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
   ActionCallouts,
-  ChainlinkStatusCard,
   ConnectWalletPanel,
   FaqSection,
   MissionChecklist,
   ProcessTimeline,
 } from "@/components/voting/HomeSections";
-import { StakeSection } from "@/components/voting/StakeSection";
 import { UserDashboard } from "@/components/voting/UserDashboard";
-import { VoteResults } from "@/components/voting/VoteResults";
-import { VoteSection } from "@/components/voting/VoteSection";
 import { useWalletContext } from "@/contexts/WalletContext";
 import { useContractStats } from "@/hooks/useContractStats";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-const FALLBACK_LAST_MINT = "约 2 小时前";
-
-type StakePayload = {
-  stakedAmount?: number;
-  votingPower?: number;
-  dotBalance?: number;
-  mintedVdot?: number;
-  ticketBalance?: number;
-  lastMintTime?: string;
-  error?: string;
-};
-
-type VotePayload = {
-  hasVoted?: boolean;
-  ticketBalance?: number;
-  votingPower?: number;
-  error?: string;
-};
-
 export default function Home() {
-  const [stakedAmount, setStakedAmount] = useState(0);
-  const [votingPower, setVotingPower] = useState(0);
-  const [hasVoted, setHasVoted] = useState(false);
-  const [dotBalance, setDotBalance] = useState(0);
-  const [mintedVdot, setMintedVdot] = useState(0);
-  const [ticketBalance, setTicketBalance] = useState(0);
-  const [lastMintTime, setLastMintTime] = useState<string | null>(null);
   const [communityJoined, setCommunityJoined] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   // 获取链上统计数据
   const contractStats = useContractStats();
 
-  const loadUserData = async (address: string) => {
-    try {
-      setLoading(true);
-
-      if (!API_BASE_URL) {
-        setDotBalance(356.42);
-        setMintedVdot(128.5);
-        setTicketBalance(42);
-        setStakedAmount(24.5);
-        setVotingPower(24);
-        setHasVoted(false);
-        setLastMintTime(FALLBACK_LAST_MINT);
-        return;
-      }
-
-      const stakeRes = await fetch(`${API_BASE_URL}/stake/${address}`);
-      const stakeData = (await stakeRes.json()) as StakePayload;
-      setStakedAmount(stakeData.stakedAmount ?? 0);
-      setVotingPower(stakeData.votingPower ?? 0);
-      setDotBalance(stakeData.dotBalance ?? 0);
-      setMintedVdot(stakeData.mintedVdot ?? stakeData.stakedAmount ?? 0);
-      setTicketBalance(stakeData.ticketBalance ?? stakeData.votingPower ?? 0);
-      setLastMintTime(stakeData.lastMintTime ?? FALLBACK_LAST_MINT);
-
-      const voteRes = await fetch(`${API_BASE_URL}/vote/${address}`);
-      const voteData = (await voteRes.json()) as VotePayload;
-      setHasVoted(voteData.hasVoted ?? false);
-    } catch (error) {
-      console.error("Error loading user data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resetState = () => {
-    setStakedAmount(0);
-    setVotingPower(0);
-    setHasVoted(false);
-    setDotBalance(0);
-    setMintedVdot(0);
-    setTicketBalance(0);
-    setLastMintTime(null);
-    setLoading(false);
-  };
-
   const {
     isConnected: walletConnected,
-    address: walletAddress,
     connect,
     isLoading: connecting,
   } = useWalletContext();
 
-  // Load user data when wallet connects
-  useEffect(() => {
-    if (walletConnected && walletAddress) {
-      void loadUserData(walletAddress);
-    } else {
-      resetState();
-    }
-  }, [walletConnected, walletAddress]);
-
   const connectWallet = () => connect("evm"); // 默认连接 EVM 钱包
-
-  const handleStake = async (amount: number) => {
-    try {
-      if (!API_BASE_URL) {
-        setStakedAmount((prev) => prev + amount);
-        setVotingPower((prev) => prev + amount);
-        setTicketBalance((prev) => prev + amount);
-        setMintedVdot((prev) => Math.max(prev - amount, 0));
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/stake`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ address: walletAddress, amount }),
-      });
-
-      const data = (await response.json()) as StakePayload;
-
-      if (response.ok) {
-        setStakedAmount(data.stakedAmount ?? stakedAmount);
-        setVotingPower(data.votingPower ?? votingPower);
-        setDotBalance(data.dotBalance ?? dotBalance);
-        setMintedVdot(data.mintedVdot ?? mintedVdot);
-        setTicketBalance(data.ticketBalance ?? ticketBalance);
-        setLastMintTime(
-          data.lastMintTime ?? lastMintTime ?? FALLBACK_LAST_MINT,
-        );
-      } else {
-        const errorMsg = data.error ?? "未知错误";
-        console.error("Error staking:", errorMsg);
-        alert("抵押失败: " + errorMsg);
-      }
-    } catch (error) {
-      console.error("Error staking:", error);
-      alert("抵押失败，请重试");
-    }
-  };
-
-  const handleVote = async (yearOption: number) => {
-    if (votingPower <= 0) return;
-
-    try {
-      if (!API_BASE_URL) {
-        setHasVoted(true);
-        setTicketBalance((prev) => Math.max(prev - votingPower, 0));
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/vote`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          address: walletAddress,
-          option: yearOption,
-          votingPower,
-        }),
-      });
-
-      const data = (await response.json()) as VotePayload & {
-        success?: boolean;
-      };
-
-      if (response.ok) {
-        setHasVoted(true);
-        setTicketBalance(data.ticketBalance ?? ticketBalance);
-        setVotingPower(data.votingPower ?? votingPower);
-      } else {
-        const errorMsg = data.error ?? "未知错误";
-        console.error("Error voting:", errorMsg);
-        alert("投票失败: " + errorMsg);
-      }
-    } catch (error) {
-      console.error("Error voting:", error);
-      alert("投票失败，请重试");
-    }
-  };
 
   const tasks = useMemo(
     () => [
@@ -206,17 +38,17 @@ export default function Home() {
       },
       {
         label: "铸造 vDOT",
-        done: mintedVdot > 0,
+        done: false,
         description: "通过 SLPx 桥完成 DOT → vDOT 兑换。",
       },
       {
         label: "抵押 vDOT",
-        done: stakedAmount > 0,
+        done: false,
         description: "在平台合约内锁定 vDOT 获得票券。",
       },
       {
         label: "提交预测",
-        done: hasVoted,
+        done: false,
         description: "选择年份并确认交易，等待 Chainlink 开奖。",
       },
       {
@@ -225,7 +57,7 @@ export default function Home() {
         description: "进入 Telegram 群获取开奖提醒与最新活动。",
       },
     ],
-    [walletConnected, mintedVdot, stakedAmount, hasVoted, communityJoined],
+    [walletConnected, communityJoined],
   );
 
   const heroMetrics = useMemo(
@@ -304,25 +136,7 @@ export default function Home() {
             <div className="mt-8 flex flex-wrap items-center gap-6 text-sm text-white/60">
               <div className="flex items-center gap-2">
                 <span className="flex h-2 w-2 rounded-full bg-green-400" />
-                {loading ? "同步链上数据..." : "链上状态正常"}
-              </div>
-              <div className="flex items-center gap-2">
-                <svg
-                  className="h-4 w-4 text-cyan-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3"
-                  />
-                </svg>
-                {lastMintTime
-                  ? `最近一次铸造：${lastMintTime}`
-                  : "等待铸造记录"}
+                链上状态正常
               </div>
               <div className="flex items-center gap-2">
                 <svg
@@ -384,7 +198,7 @@ export default function Home() {
         )}
 
         <ActionCallouts
-          hasVoted={hasVoted}
+          hasVoted={false}
           communityJoined={communityJoined}
           onJoinCommunity={() => setCommunityJoined(true)}
         />
@@ -392,42 +206,6 @@ export default function Home() {
         {walletConnected && (
           <>
             <UserDashboard />
-
-            <section className="mb-16 grid gap-6 lg:grid-cols-[1.65fr,1fr]">
-              <div className="space-y-6">
-                <section id="stake" aria-labelledby="stake-title">
-                  <h2
-                    id="stake-title"
-                    className="mb-4 text-xl font-semibold text-white"
-                  >
-                    抵押并获取投票券
-                  </h2>
-                  <StakeSection
-                    onStake={handleStake}
-                    currentStaked={stakedAmount}
-                  />
-                </section>
-
-                <section id="vote" aria-labelledby="vote-title">
-                  <h2
-                    id="vote-title"
-                    className="mb-4 text-xl font-semibold text-white"
-                  >
-                    选择预测年份
-                  </h2>
-                  <VoteSection
-                    votingPower={votingPower}
-                    hasVoted={hasVoted}
-                    onVote={handleVote}
-                  />
-                </section>
-              </div>
-
-              <div className="space-y-6">
-                <VoteResults />
-                <ChainlinkStatusCard />
-              </div>
-            </section>
           </>
         )}
 
