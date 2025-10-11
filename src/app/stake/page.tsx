@@ -1,25 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { useMemo, useState, useEffect } from "react";
+import { useAccount, useWaitForTransactionReceipt } from "wagmi";
 import { parseEther, formatEther } from "viem";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStakingContract } from "@/hooks/useStakingContract";
 
 const LOCK_OPTIONS = [
-  { label: "直到开奖后解锁", value: 0, multiplier: 1.5 },
+  { label: "直到开奖后解锁", value: 0, multiplier: 1.0 },
 ] as const;
 
 export default function StakePage() {
   const { isConnected } = useAccount();
+  const router = useRouter();
   const [stakeAmount, setStakeAmount] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [stakedAmount, setStakedAmount] = useState<string>("");
   const selectedLock = LOCK_OPTIONS[0];
 
-  const { vDOTBalance, stakeCount, ticketBalance, stake, isPending, error } =
-    useStakingContract();
+  const {
+    vDOTBalance,
+    stakeCount,
+    ticketBalance,
+    stake,
+    isPending,
+    error,
+    txHash,
+  } = useStakingContract();
+
+  // 监听交易确认
+  const { data: receipt, isLoading: isConfirming } =
+    useWaitForTransactionReceipt({
+      hash: txHash,
+    });
+
+  // 交易确认后的处理
+  useEffect(() => {
+    if (receipt && receipt.status === "success") {
+      setShowSuccessModal(true);
+      setStakeAmount(""); // 清空输入
+    }
+  }, [receipt]);
 
   // 格式化余额显示
   const formattedBalance = useMemo(() => {
@@ -33,11 +58,11 @@ export default function StakePage() {
     return formatEther(ticketBalance as bigint);
   }, [ticketBalance]);
 
-  // 计算预计获得的票券
+  // 计算预计获得的票券（1:1比例）
   const projectedTickets = useMemo(() => {
     const amount = parseFloat(stakeAmount) || 0;
-    return amount > 0 ? amount * selectedLock.multiplier : 0;
-  }, [stakeAmount, selectedLock]);
+    return amount > 0 ? amount : 0; // 1:1比例
+  }, [stakeAmount]);
 
   // 处理抵押
   const handleStake = async () => {
@@ -58,8 +83,8 @@ export default function StakePage() {
     }
 
     try {
-      await stake(parseEther(stakeAmount), selectedLock.value);
-      setStakeAmount(""); // 清空输入
+      setStakedAmount(stakeAmount); // 保存抵押数量用于显示
+      await stake(parseEther(stakeAmount));
     } catch (error) {
       console.error("抵押失败:", error);
     }
@@ -91,6 +116,109 @@ export default function StakePage() {
 
   return (
     <>
+      {/* 抵押成功模态框 */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-md rounded-3xl border border-white/20 bg-white/10 p-8 backdrop-blur-xl">
+            <div className="text-center">
+              {/* 成功图标 */}
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
+                <svg
+                  className="h-8 w-8 text-green-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+
+              {/* 成功标题 */}
+              <h3 className="mb-2 text-2xl font-semibold text-white">
+                抵押成功！
+              </h3>
+              <p className="mb-6 text-sm text-white/70">
+                您已成功抵押 {stakedAmount} vDOT，获得 {stakedAmount} 张投票券
+              </p>
+
+              {/* 抵押详情 */}
+              <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-left">
+                <div className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-white/60">抵押数量</span>
+                  <span className="text-white">{stakedAmount} vDOT</span>
+                </div>
+                <div className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-white/60">获得投票券</span>
+                  <span className="text-white">{stakedAmount} 张</span>
+                </div>
+                <div className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-white/60">锁定状态</span>
+                  <span className="text-green-400">已锁定</span>
+                </div>
+                <div className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-white/60">解锁时间</span>
+                  <span className="text-white/60">投票期开奖后</span>
+                </div>
+              </div>
+
+              {/* 下一步指引 */}
+              <div className="mb-6 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/20">
+                    <svg
+                      className="h-4 w-4 text-cyan-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-cyan-400">
+                      下一步：参与投票
+                    </p>
+                    <p className="text-xs text-white/60">
+                      使用您的投票券参与 BTC 未来预测投票
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowSuccessModal(false)}
+                  variant="outline"
+                  className="flex-1 border-white/20 bg-white/5 text-white hover:bg-white/10"
+                >
+                  继续抵押
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    router.push("/vote");
+                  }}
+                  className="flex-1 border-0 bg-gradient-to-r from-cyan-500 to-purple-500 text-white hover:from-cyan-600 hover:to-purple-600"
+                >
+                  前往投票
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="container mx-auto max-w-6xl px-4 pt-16 pb-20">
         <div className="mb-12 flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
@@ -155,11 +283,9 @@ export default function StakePage() {
                   <p className="text-sm font-medium text-white">
                     {selectedLock.label}
                   </p>
-                  <p className="mt-1 text-xs text-white/60">
-                    奖励倍率 x{selectedLock.multiplier.toFixed(2)}
-                  </p>
+                  <p className="mt-1 text-xs text-white/60">投票券比例 1:1</p>
                   <p className="mt-2 text-xs text-white/50">
-                    抵押的 vDOT 将在 Chainlink 开奖后自动解锁
+                    抵押的 vDOT 将在 Chainlink 返回数据触发开奖条件后自动解锁
                   </p>
                 </div>
               </div>
@@ -216,11 +342,18 @@ export default function StakePage() {
               <Button
                 onClick={handleStake}
                 disabled={
-                  isPending || !stakeAmount || parseFloat(stakeAmount) <= 0
+                  isPending ||
+                  isConfirming ||
+                  !stakeAmount ||
+                  parseFloat(stakeAmount) <= 0
                 }
                 className="mt-8 w-full border-0 bg-gradient-to-r from-cyan-500 to-purple-500 text-lg text-white hover:from-cyan-600 hover:to-purple-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isPending ? "抵押处理中..." : "确认抵押"}
+                {isPending
+                  ? "抵押处理中..."
+                  : isConfirming
+                    ? "等待确认..."
+                    : "确认抵押"}
               </Button>
               <p className="mt-3 text-center text-xs text-white/50">
                 抵押的 vDOT 将锁定至 Chainlink 开奖，开奖后自动解锁。

@@ -30,6 +30,13 @@ contract BTCOracle is Ownable, Pausable {
         PENDING          // 待定
     }
 
+    // 年份范围判定结果
+    struct YearRangeResult {
+        uint256 predictedYear;  // 预测年份（0表示永不会）
+        bool isCorrect;         // 是否预测正确
+        uint256 actualYear;     // 实际超越年份（0表示未超越）
+    }
+
     // 投票期数据快照
     struct MarketSnapshot {
         uint256 timestamp;
@@ -123,8 +130,9 @@ contract BTCOracle is Ownable, Pausable {
 
         // 如果投票期结束且有明确结果，通知投票合约
         if (block.timestamp >= getVotingEndTime(votingPeriodId) && result != VoteResult.PENDING) {
-            // 这里需要调用投票合约的开奖函数
-            // 注意：需要确保投票合约授权本合约调用开奖函数
+            // 计算年份范围结果并调用投票合约开奖
+            uint256 correctYear = _calculateCorrectYear(votingPeriodId, result);
+            _notifyVotingContract(votingPeriodId, correctYear);
         }
     }
 
@@ -189,6 +197,49 @@ contract BTCOracle is Ownable, Pausable {
         emit MarketSnapshotTaken(votingPeriodId, btcMarketCap, ethMarketCap, bnbMarketCap);
 
         return result;
+    }
+
+    /**
+     * @dev 计算正确答案年份
+     * @param votingPeriodId 投票期ID
+     * @param result 投票结果
+     * @return 正确答案年份（0表示永不会）
+     */
+    function _calculateCorrectYear(uint256 votingPeriodId, VoteResult result) internal view returns (uint256) {
+        if (result == VoteResult.BTC_DOMINANT) {
+            return 0; // 永不会
+        } else if (result == VoteResult.COMPETITOR_WIN) {
+            // 根据投票期开始时间计算实际超越年份
+            uint256 periodStartTime = _getVotingPeriodStartTime(votingPeriodId);
+            uint256 yearsElapsed = (block.timestamp - periodStartTime) / 365 days;
+            
+            // 返回奇数年（符合UI逻辑）
+            uint256 currentYear = 2025 + yearsElapsed;
+            return currentYear % 2 == 0 ? currentYear + 1 : currentYear;
+        }
+        return 0; // 默认永不会
+    }
+
+    /**
+     * @dev 获取投票期开始时间
+     * @param votingPeriodId 投票期ID
+     */
+    function _getVotingPeriodStartTime(uint256 votingPeriodId) internal view returns (uint256) {
+        // 这里需要从投票合约获取实际的投票期开始时间
+        // 暂时使用固定时间作为示例
+        return block.timestamp - (block.timestamp % (365 days));
+    }
+
+    /**
+     * @dev 通知投票合约开奖结果
+     * @param votingPeriodId 投票期ID
+     * @param correctYear 正确答案年份
+     */
+    function _notifyVotingContract(uint256 votingPeriodId, uint256 correctYear) internal {
+        // 这里需要调用投票合约的 resolveVotingPeriod 函数
+        // 注意：需要确保投票合约授权本合约调用开奖函数
+        // 示例代码（需要根据实际投票合约接口调整）：
+        // IVotingContract(votingContract).resolveVotingPeriod(votingPeriodId, correctYear);
     }
 
     /**

@@ -3,12 +3,17 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_vDOTToken",
+        "name": "_btcPriceFeed",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "_votingTicketToken",
+        "name": "_ethPriceFeed",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_bnbPriceFeed",
         "type": "address"
       },
       {
@@ -53,38 +58,34 @@
     "type": "error"
   },
   {
-    "inputs": [],
-    "name": "ReentrancyGuardReentrantCall",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      }
-    ],
-    "name": "SafeERC20FailedOperation",
-    "type": "error"
-  },
-  {
     "anonymous": false,
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "votingPeriodId",
+        "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "amount",
+        "name": "btcCap",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "ethCap",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "bnbCap",
         "type": "uint256"
       }
     ],
-    "name": "EmergencyWithdraw",
+    "name": "MarketSnapshotTaken",
     "type": "event"
   },
   {
@@ -124,18 +125,6 @@
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
         "internalType": "uint256",
         "name": "votingPeriodId",
         "type": "uint256"
@@ -143,11 +132,17 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "ticketsMinted",
+        "name": "btcThreshold",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "competitorThreshold",
         "type": "uint256"
       }
     ],
-    "name": "Staked",
+    "name": "ThresholdUpdated",
     "type": "event"
   },
   {
@@ -161,31 +156,6 @@
       }
     ],
     "name": "Unpaused",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "stakeIndex",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "Unstaked",
     "type": "event"
   },
   {
@@ -208,14 +178,8 @@
     "type": "event"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "calculateTickets",
+    "inputs": [],
+    "name": "SNAPSHOT_INTERVAL",
     "outputs": [
       {
         "internalType": "uint256",
@@ -223,23 +187,31 @@
         "type": "uint256"
       }
     ],
-    "stateMutability": "pure",
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "VOTING_DURATION",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
         "internalType": "uint256",
-        "name": "stakeIndex",
+        "name": "votingPeriodId",
         "type": "uint256"
       }
     ],
-    "name": "canUnstake",
+    "name": "canTakeSnapshot",
     "outputs": [
       {
         "internalType": "bool",
@@ -251,26 +223,8 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "emergencyWithdraw",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [],
-    "name": "getContractTicketBalance",
+    "name": "currentVotingPeriod",
     "outputs": [
       {
         "internalType": "uint256",
@@ -283,12 +237,38 @@
   },
   {
     "inputs": [],
-    "name": "getContractVDOTBalance",
+    "name": "getBNBPrice",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "int256",
         "name": "",
-        "type": "uint256"
+        "type": "int256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getBTCPrice",
+    "outputs": [
+      {
+        "internalType": "int256",
+        "name": "",
+        "type": "int256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getETHPrice",
+    "outputs": [
+      {
+        "internalType": "int256",
+        "name": "",
+        "type": "int256"
       }
     ],
     "stateMutability": "view",
@@ -297,47 +277,42 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
         "internalType": "uint256",
-        "name": "index",
+        "name": "votingPeriodId",
         "type": "uint256"
       }
     ],
-    "name": "getUserStake",
+    "name": "getLatestSnapshot",
     "outputs": [
       {
         "components": [
           {
             "internalType": "uint256",
-            "name": "amount",
+            "name": "timestamp",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "votingPeriodId",
+            "name": "btcMarketCap",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "startTime",
+            "name": "ethMarketCap",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "ticketsMinted",
+            "name": "bnbMarketCap",
             "type": "uint256"
           },
           {
-            "internalType": "bool",
-            "name": "active",
-            "type": "bool"
+            "internalType": "enum BTCOracle.VoteResult",
+            "name": "result",
+            "type": "uint8"
           }
         ],
-        "internalType": "struct StakingContract.StakeInfo",
+        "internalType": "struct BTCOracle.MarketSnapshot",
         "name": "",
         "type": "tuple"
       }
@@ -348,12 +323,77 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "votingPeriodId",
+        "type": "uint256"
       }
     ],
-    "name": "getUserStakeCount",
+    "name": "getVotingEndTime",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "votingPeriodId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getVotingPeriodSnapshots",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "timestamp",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "btcMarketCap",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "ethMarketCap",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "bnbMarketCap",
+            "type": "uint256"
+          },
+          {
+            "internalType": "enum BTCOracle.VoteResult",
+            "name": "result",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct BTCOracle.MarketSnapshot[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "lastSnapshotTime",
     "outputs": [
       {
         "internalType": "uint256",
@@ -408,23 +448,62 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "amount",
+        "name": "votingPeriodId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "btcThreshold",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "competitorThreshold",
         "type": "uint256"
       }
     ],
-    "name": "stake",
+    "name": "setThreshold",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "totalStaked",
-    "outputs": [
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "votingPeriodId",
+        "type": "uint256"
+      }
+    ],
+    "name": "takeMarketSnapshot",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "name": "thresholds",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "btcMarketCap",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "competitorCap",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "isActive",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -453,19 +532,6 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "stakeIndex",
-        "type": "uint256"
-      }
-    ],
-    "name": "unstake",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "newVotingContract",
         "type": "address"
@@ -477,68 +543,11 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "name": "userStakes",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "votingPeriodId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "startTime",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "ticketsMinted",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "active",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "vDOTToken",
-    "outputs": [
-      {
-        "internalType": "contract IERC20",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "votingContract",
     "outputs": [
       {
-        "internalType": "contract IVotingContract",
+        "internalType": "address",
         "name": "",
         "type": "address"
       }
@@ -547,13 +556,44 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "votingTicketToken",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "votingPeriodSnapshots",
     "outputs": [
       {
-        "internalType": "contract IVotingTicket",
-        "name": "",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "btcMarketCap",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "ethMarketCap",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "bnbMarketCap",
+        "type": "uint256"
+      },
+      {
+        "internalType": "enum BTCOracle.VoteResult",
+        "name": "result",
+        "type": "uint8"
       }
     ],
     "stateMutability": "view",

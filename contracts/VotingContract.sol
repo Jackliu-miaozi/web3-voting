@@ -17,15 +17,10 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
 
     IERC20 public votingTicketToken;
 
-    // 投票选项枚举
-    enum VoteOption {
-        TWO_YEARS,    // 2年内
-        FOUR_YEARS,   // 4年内
-        SIX_YEARS,    // 6年内
-        EIGHT_YEARS,  // 8年内
-        TEN_YEARS,    // 10年内
-        NEVER         // 永不会
-    }
+    // 投票选项 - 改为年份值
+    // 使用年份值代替枚举，支持自定义年份范围
+    // 例如：2027, 2029, 2031, ..., 2065 等（奇数年结束）
+    // 特殊值：0 表示"永不会"
 
     // 投票期信息
     struct VotingPeriod {
@@ -33,12 +28,12 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
         uint256 endTime;        // 结束时间
         bool active;           // 是否激活
         bool resolved;         // 是否已开奖
-        VoteOption correctAnswer; // 正确答案
+        uint256 correctAnswerYear; // 正确答案年份（0表示永不会）
     }
 
     // 用户投票信息
     struct UserVote {
-        VoteOption option;      // 投票选项
+        uint256 predictedYear;  // 预测年份（0表示永不会）
         uint256 ticketsUsed;    // 使用的投票券数量
         uint256 votingPeriodId; // 投票期ID
         uint256 timestamp;      // 投票时间
@@ -48,7 +43,7 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
     // 投票统计
     struct VoteStats {
         uint256 totalTickets;   // 总投票券数量
-        mapping(VoteOption => uint256) optionTickets; // 各选项投票券数量
+        mapping(uint256 => uint256) yearTickets; // 各年份投票券数量
     }
 
     // 投票期计数器
@@ -63,8 +58,8 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
     address public oracleContract;
 
     // 事件
-    event VoteCast(address indexed user, uint256 votingPeriodId, VoteOption option, uint256 ticketsUsed);
-    event VotingPeriodResolved(uint256 indexed votingPeriodId, VoteOption correctAnswer);
+    event VoteCast(address indexed user, uint256 votingPeriodId, uint256 predictedYear, uint256 ticketsUsed);
+    event VotingPeriodResolved(uint256 indexed votingPeriodId, uint256 correctYear);
     event RewardClaimed(address indexed user, uint256 voteIndex, uint256 rewardAmount);
     event OracleContractUpdated(address oldOracle, address newOracle);
 
@@ -82,18 +77,18 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
             endTime: block.timestamp + 365 days, // 1年投票期
             active: true,
             resolved: false,
-            correctAnswer: VoteOption.NEVER
+            correctAnswerYear: 0 // 0表示永不会
         });
     }
 
     /**
      * @dev 进行投票
-     * @param option 投票选项
+     * @param predictedYear 预测年份（0表示永不会）
      * @param ticketsToUse 使用的投票券数量
      */
-    function vote(VoteOption option, uint256 ticketsToUse) external nonReentrant whenNotPaused {
+    function vote(uint256 predictedYear, uint256 ticketsToUse) external nonReentrant whenNotPaused {
         require(ticketsToUse > 0, "Must use at least 1 ticket");
-        require(option <= VoteOption.NEVER, "Invalid vote option");
+        require(predictedYear >= 2027 || predictedYear == 0, "Invalid prediction year (must be >= 2027 or 0 for never)");
         require(votingTicketToken.balanceOf(msg.sender) >= ticketsToUse, "Insufficient ticket balance");
         require(votingTicketToken.allowance(msg.sender, address(this)) >= ticketsToUse, "Insufficient allowance");
 
@@ -108,7 +103,7 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
 
         // 记录投票
         UserVote memory userVote = UserVote({
-            option: option,
+            predictedYear: predictedYear,
             ticketsUsed: ticketsToUse,
             votingPeriodId: currentVotingPeriodId,
             timestamp: block.timestamp,
@@ -119,26 +114,26 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
 
         // 更新统计
         votingStats[currentVotingPeriodId].totalTickets += ticketsToUse;
-        votingStats[currentVotingPeriodId].optionTickets[option] += ticketsToUse;
+        votingStats[currentVotingPeriodId].yearTickets[predictedYear] += ticketsToUse;
 
-        emit VoteCast(msg.sender, currentVotingPeriodId, option, ticketsToUse);
+        emit VoteCast(msg.sender, currentVotingPeriodId, predictedYear, ticketsToUse);
     }
 
     /**
      * @dev 开奖（仅预言机合约可调用）
      * @param votingPeriodId 投票期ID
-     * @param correctOption 正确答案
+     * @param correctYear 正确答案年份（0表示永不会）
      */
-    function resolveVotingPeriod(uint256 votingPeriodId, VoteOption correctOption) external {
+    function resolveVotingPeriod(uint256 votingPeriodId, uint256 correctYear) external {
         require(msg.sender == oracleContract, "Only oracle can resolve");
-        require(correctOption <= VoteOption.NEVER, "Invalid option");
+        require(correctYear >= 2027 || correctYear == 0, "Invalid year (must be >= 2027 or 0 for never)");
         require(votingPeriods[votingPeriodId].active, "Voting period not active");
         require(!votingPeriods[votingPeriodId].resolved, "Already resolved");
 
         votingPeriods[votingPeriodId].resolved = true;
-        votingPeriods[votingPeriodId].correctAnswer = correctOption;
+        votingPeriods[votingPeriodId].correctAnswerYear = correctYear;
 
-        emit VotingPeriodResolved(votingPeriodId, correctOption);
+        emit VotingPeriodResolved(votingPeriodId, correctYear);
     }
 
     /**
@@ -153,7 +148,7 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
 
         VotingPeriod memory period = votingPeriods[userVote.votingPeriodId];
         require(period.resolved, "Voting period not resolved");
-        require(period.correctAnswer == userVote.option, "Vote was incorrect");
+        require(period.correctAnswerYear == userVote.predictedYear, "Vote was incorrect");
 
         // 计算奖励倍数（预测准确的用户可获得奖励）
         uint256 rewardMultiplier = 2; // 2倍奖励
@@ -178,10 +173,10 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev 获取投票统计
      * @param votingPeriodId 投票期ID
-     * @param option 投票选项
+     * @param year 年份
      */
-    function getVoteStats(uint256 votingPeriodId, VoteOption option) external view returns (uint256) {
-        return votingStats[votingPeriodId].optionTickets[option];
+    function getVoteStats(uint256 votingPeriodId, uint256 year) external view returns (uint256) {
+        return votingStats[votingPeriodId].yearTickets[year];
     }
 
     /**
@@ -215,7 +210,7 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
         VotingPeriod memory period = votingPeriods[userVote.votingPeriodId];
         if (!period.resolved) return false;
 
-        return period.correctAnswer == userVote.option;
+        return period.correctAnswerYear == userVote.predictedYear;
     }
 
     /**
@@ -231,7 +226,7 @@ contract VotingContract is Ownable, ReentrancyGuard, Pausable {
             endTime: block.timestamp + duration,
             active: true,
             resolved: false,
-            correctAnswer: VoteOption.NEVER
+            correctAnswerYear: 0 // 0表示永不会
         });
     }
 

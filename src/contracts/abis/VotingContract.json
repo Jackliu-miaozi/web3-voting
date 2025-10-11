@@ -169,9 +169,9 @@
       },
       {
         "indexed": false,
-        "internalType": "enum VotingContract.VoteOption",
-        "name": "option",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "predictedYear",
+        "type": "uint256"
       },
       {
         "indexed": false,
@@ -194,9 +194,9 @@
       },
       {
         "indexed": false,
-        "internalType": "enum VotingContract.VoteOption",
-        "name": "correctAnswer",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "correctYear",
+        "type": "uint256"
       }
     ],
     "name": "VotingPeriodResolved",
@@ -305,9 +305,9 @@
             "type": "bool"
           },
           {
-            "internalType": "enum VotingContract.VoteOption",
-            "name": "correctAnswer",
-            "type": "uint8"
+            "internalType": "uint256",
+            "name": "correctAnswerYear",
+            "type": "uint256"
           }
         ],
         "internalType": "struct VotingContract.VotingPeriod",
@@ -336,9 +336,9 @@
       {
         "components": [
           {
-            "internalType": "enum VotingContract.VoteOption",
-            "name": "option",
-            "type": "uint8"
+            "internalType": "uint256",
+            "name": "predictedYear",
+            "type": "uint256"
           },
           {
             "internalType": "uint256",
@@ -396,9 +396,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "enum VotingContract.VoteOption",
-        "name": "option",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "year",
+        "type": "uint256"
       }
     ],
     "name": "getVoteStats",
@@ -473,9 +473,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "enum VotingContract.VoteOption",
-        "name": "correctOption",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "correctYear",
+        "type": "uint256"
       }
     ],
     "name": "resolveVotingPeriod",
@@ -532,9 +532,9 @@
     "name": "userVotes",
     "outputs": [
       {
-        "internalType": "enum VotingContract.VoteOption",
-        "name": "option",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "predictedYear",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
@@ -563,9 +563,9 @@
   {
     "inputs": [
       {
-        "internalType": "enum VotingContract.VoteOption",
-        "name": "option",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "predictedYear",
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
@@ -609,9 +609,9 @@
         "type": "bool"
       },
       {
-        "internalType": "enum VotingContract.VoteOption",
-        "name": "correctAnswer",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "correctAnswerYear",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",

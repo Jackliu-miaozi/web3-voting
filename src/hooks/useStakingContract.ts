@@ -3,10 +3,10 @@
 import {
   useReadContract,
   useWriteContract,
+  useSendTransaction,
   useAccount,
   useChainId,
 } from "wagmi";
-import { useMemo } from "react";
 import { formatEther } from "viem";
 import { getContractAddress } from "@/config/contracts";
 import StakingContractAbi from "@/contracts/abis/StakingContract.json";
@@ -18,19 +18,9 @@ import VotingTicketAbi from "@/contracts/abis/VotingTicket.json";
  */
 export interface StakeInfo {
   amount: bigint;
-  lockDuration: bigint;
+  votingPeriodId: bigint;
   startTime: bigint;
-  endTime: bigint;
   ticketsMinted: bigint;
-  active: boolean;
-}
-
-/**
- * 锁定选项信息
- */
-export interface LockOption {
-  duration: bigint;
-  multiplier: bigint;
   active: boolean;
 }
 
@@ -46,7 +36,13 @@ export function useStakingContract() {
   const votingTicketAddress = getContractAddress(chainId, "VotingTicket");
 
   // 写入合约方法
-  const { writeContract, isPending, error: writeError } = useWriteContract();
+  const {
+    writeContract,
+    data: txHash,
+    isPending,
+    error: writeError,
+  } = useWriteContract();
+  const { isPending: isSending, error: sendError } = useSendTransaction();
 
   // 读取用户 vDOT 余额
   const { data: vDOTBalance } = useReadContract({
@@ -90,82 +86,8 @@ export function useStakingContract() {
     functionName: "totalStaked",
   });
 
-  // 读取锁定选项
-  const { data: lockOption7 } = useReadContract({
-    address: stakingContractAddress,
-    abi: StakingContractAbi,
-    functionName: "lockOptions",
-    args: [BigInt(7)],
-  });
-
-  const { data: lockOption30 } = useReadContract({
-    address: stakingContractAddress,
-    abi: StakingContractAbi,
-    functionName: "lockOptions",
-    args: [BigInt(30)],
-  });
-
-  const { data: lockOption90 } = useReadContract({
-    address: stakingContractAddress,
-    abi: StakingContractAbi,
-    functionName: "lockOptions",
-    args: [BigInt(90)],
-  });
-
-  // 计算可用的锁定选项
-  const lockOptions = useMemo(() => {
-    const options = [];
-
-    if (lockOption7) {
-      const [duration, multiplier, active] = lockOption7 as [
-        bigint,
-        bigint,
-        boolean,
-      ];
-      if (active) {
-        options.push({
-          duration: Number(duration) / (24 * 60 * 60), // 转换为天数
-          multiplier: Number(multiplier) / 10000, // 转换为倍数
-          days: 7,
-        });
-      }
-    }
-
-    if (lockOption30) {
-      const [duration, multiplier, active] = lockOption30 as [
-        bigint,
-        bigint,
-        boolean,
-      ];
-      if (active) {
-        options.push({
-          duration: Number(duration) / (24 * 60 * 60),
-          multiplier: Number(multiplier) / 10000,
-          days: 30,
-        });
-      }
-    }
-
-    if (lockOption90) {
-      const [duration, multiplier, active] = lockOption90 as [
-        bigint,
-        bigint,
-        boolean,
-      ];
-      if (active) {
-        options.push({
-          duration: Number(duration) / (24 * 60 * 60),
-          multiplier: Number(multiplier) / 10000,
-          days: 90,
-        });
-      }
-    }
-
-    return options.sort((a, b) => a.days - b.days);
-  }, [lockOption7, lockOption30, lockOption90]);
-
   // 抵押方法
-  const stake = async (amount: bigint, lockDuration: number) => {
+  const stake = async (amount: bigint): Promise<void> => {
     if (!address) {
       throw new Error("请先连接钱包");
     }
@@ -187,14 +109,12 @@ export function useStakingContract() {
       }
 
       // 执行抵押
-      console.log(
-        `开始抵押 ${formatEther(amount)} vDOT，锁定 ${lockDuration} 天...`,
-      );
+      console.log(`开始抵押 ${formatEther(amount)} vDOT，锁定到投票期开奖...`);
       writeContract({
         address: stakingContractAddress,
         abi: StakingContractAbi,
         functionName: "stake",
-        args: [amount, BigInt(lockDuration)],
+        args: [amount],
       });
     } catch (error) {
       console.error("抵押失败:", error);
@@ -221,13 +141,10 @@ export function useStakingContract() {
     }
   };
 
-  // 计算投票券数量（使用 useReadContract hook）
-  const { data: calculatedTickets } = useReadContract({
-    address: stakingContractAddress,
-    abi: StakingContractAbi,
-    functionName: "calculateTickets",
-    args: [BigInt(0), BigInt(7)], // 默认参数，实际使用时需要传入具体值
-  });
+  // 计算投票券数量（1:1比例）
+  const calculatedTickets = (amount: bigint) => {
+    return amount; // 新合约是1:1比例
+  };
 
   return {
     // 数据
@@ -236,7 +153,6 @@ export function useStakingContract() {
     stakeCount: stakeCount ?? BigInt(0),
     totalStaked: totalStaked ?? BigInt(0),
     ticketBalance: ticketBalance ?? BigInt(0),
-    lockOptions,
 
     // 方法
     stake,
@@ -244,8 +160,9 @@ export function useStakingContract() {
     calculatedTickets,
 
     // 状态
-    isPending,
-    error: writeError,
+    isPending: isPending ?? isSending,
+    error: writeError ?? sendError,
+    txHash: txHash ?? null, // Add transaction hash to return
 
     // 合约地址
     stakingContractAddress,

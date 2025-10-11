@@ -5,6 +5,27 @@
 import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+  experimental: {
+    turbo: {
+      rules: {
+        "*.woff2": {
+          loaders: ["file-loader"],
+          as: "*.woff2",
+        },
+      },
+    },
+  },
+  transpilePackages: [],
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+      };
+    }
+    return config;
+  },
+};
 
 export default config;
