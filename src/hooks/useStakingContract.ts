@@ -164,29 +164,29 @@ export function useStakingContract() {
 
     for (let i = 0; i < stakeCountNum; i++) {
       try {
-        const stakeInfo = await publicClient.readContract({
+        const stakeInfo = (await publicClient.readContract({
           address: stakingContractAddress,
           abi: StakingContractAbi,
           functionName: "getUserStake",
           args: [address, BigInt(i)],
-        });
+        })) as StakeInfo;
 
         // 检查投票期是否已开奖
-        const canUnstake = await publicClient.readContract({
+        const canUnstake = (await publicClient.readContract({
           address: stakingContractAddress,
           abi: StakingContractAbi,
           functionName: "canUnstake",
           args: [address, BigInt(i)],
-        });
+        })) as boolean;
 
         history.push({
           index: i,
-          amount: formatEther(stakeInfo.amount as bigint),
-          votingPeriodId: Number(stakeInfo.votingPeriodId as bigint),
-          startTime: new Date(Number(stakeInfo.startTime as bigint) * 1000),
-          ticketsMinted: formatEther(stakeInfo.ticketsMinted as bigint),
-          active: stakeInfo.active as boolean,
-          canUnstake: canUnstake as boolean,
+          amount: formatEther(stakeInfo.amount),
+          votingPeriodId: Number(stakeInfo.votingPeriodId),
+          startTime: new Date(Number(stakeInfo.startTime) * 1000),
+          ticketsMinted: formatEther(stakeInfo.ticketsMinted),
+          active: stakeInfo.active,
+          canUnstake,
         });
       } catch (error) {
         console.error(`Error fetching stake ${i}:`, error);

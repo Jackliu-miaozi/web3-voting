@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useStakingContract } from "@/hooks/useStakingContract";
 
 interface StakingHistoryItem {
@@ -18,7 +18,7 @@ export function StakingHistory() {
   const [history, setHistory] = useState<StakingHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       setLoading(true);
       console.log("🔍 Fetching staking history...");
@@ -30,7 +30,7 @@ export function StakingHistory() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getUserStakingHistory]);
 
   useEffect(() => {
     console.log(
