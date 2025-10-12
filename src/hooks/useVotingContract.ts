@@ -103,6 +103,7 @@ export function useVotingContract() {
   // Write contract for voting ticket approval
   const {
     writeContract: approveVotingTickets,
+    writeContractAsync: approveVotingTicketsAsync,
     data: approvalTxHash,
     isPending: isApproving,
     error: approvalError,
@@ -111,6 +112,7 @@ export function useVotingContract() {
   // Write contract for voting
   const {
     writeContract: vote,
+    writeContractAsync: voteAsync,
     data: voteTxHash,
     isPending: isVoting,
     error: voteError,
@@ -167,69 +169,100 @@ export function useVotingContract() {
   };
 
   // Complete voting flow (approve if needed, then vote)
-  const completeVote = async (predictedYear: number, ticketsToUse: bigint) => {
+  const completeVote = async (
+    predictedYear: number,
+    ticketsToUse: bigint,
+    longTermApproval = false,
+  ) => {
     if (!address) {
       throw new Error("请先连接钱包");
     }
 
     const currentAllowance = (allowance as bigint) || 0n;
 
-    // If allowance is insufficient, approve first
-    if (currentAllowance < ticketsToUse) {
-      await approve(ticketsToUse);
+    try {
+      // Step 1: Check if we need approval
+      if (currentAllowance < ticketsToUse) {
+        console.log("🔐 需要授权投票券，开始授权流程...");
 
-      // Wait for approval to complete
-      return new Promise<void>((resolve, reject) => {
-        const checkApproval = () => {
-          if (approvalReceipt?.status === "success") {
-            // Approval successful, now vote
-            void submitVote(predictedYear, ticketsToUse);
+        // Calculate approval amount
+        let approvalAmount: bigint;
+        if (longTermApproval) {
+          // 长期授权：使用最大uint256值，相当于无限授权
+          approvalAmount = BigInt(
+            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          );
+          console.log("🔄 设置长期授权（无限额度）");
+        } else {
+          // 短期授权：只授权需要的数量
+          approvalAmount = ticketsToUse;
+          console.log("🔒 设置短期授权（仅当前投票数量）");
+        }
 
-            // Wait for vote to complete
-            const checkVote = () => {
-              if (voteReceipt?.status === "success") {
-                resolve();
-              } else if (voteReceipt?.status === "reverted") {
-                reject(new Error("投票失败"));
-              } else {
-                // Still waiting for vote
-                setTimeout(checkVote, 1000);
-              }
-            };
+        // Execute approval and get transaction hash directly
+        const approvalTxHash = await approveVotingTicketsAsync({
+          address: votingTicketAddress,
+          abi: votingTicketAbi,
+          functionName: "approve",
+          args: [votingContractAddress, approvalAmount],
+        });
 
-            // Start checking vote after a short delay
-            setTimeout(checkVote, 1000);
-          } else if (approvalReceipt?.status === "reverted") {
-            reject(new Error("投票券授权失败"));
+        console.log("📝 授权交易已提交，哈希:", approvalTxHash);
+
+        // Wait for approval to be mined
+        console.log("⏳ 等待授权交易确认...");
+
+        try {
+          const approvalReceipt = await publicClient.waitForTransactionReceipt({
+            hash: approvalTxHash,
+            timeout: 30000, // 30 seconds
+          });
+
+          if (approvalReceipt.status === "success") {
+            console.log("✅ 投票券授权成功，开始投票...");
           } else {
-            // Still waiting for approval
-            setTimeout(checkApproval, 1000);
+            throw new Error("投票券授权失败");
           }
-        };
+        } catch (approvalWaitError) {
+          console.error("等待授权交易失败:", approvalWaitError);
+          throw new Error("授权超时，请重试");
+        }
+      }
 
-        // Start checking after a short delay
-        setTimeout(checkApproval, 1000);
+      // Step 2: Execute vote
+      console.log("🗳️ 开始执行投票...");
+
+      // Execute the vote and get transaction hash directly
+      const txHash = await voteAsync({
+        address: votingContractAddress,
+        abi: votingContractAbi,
+        functionName: "vote",
+        args: [BigInt(predictedYear), ticketsToUse],
       });
-    } else {
-      // Sufficient allowance, vote directly
-      void submitVote(predictedYear, ticketsToUse);
 
-      // Wait for vote to complete
-      return new Promise<void>((resolve, reject) => {
-        const checkVote = () => {
-          if (voteReceipt?.status === "success") {
-            resolve();
-          } else if (voteReceipt?.status === "reverted") {
-            reject(new Error("投票失败"));
-          } else {
-            // Still waiting for vote
-            setTimeout(checkVote, 1000);
-          }
-        };
+      console.log("📝 投票交易已提交，哈希:", txHash);
 
-        // Start checking after a short delay
-        setTimeout(checkVote, 1000);
-      });
+      // Wait for the transaction to be mined
+      console.log("⏳ 等待投票交易确认...");
+
+      try {
+        const receipt = await publicClient.waitForTransactionReceipt({
+          hash: txHash,
+          timeout: 30000, // 30 seconds
+        });
+
+        if (receipt.status === "success") {
+          console.log("✅ 投票成功完成！");
+        } else {
+          throw new Error("投票交易失败");
+        }
+      } catch (waitError) {
+        console.error("等待投票交易失败:", waitError);
+        throw new Error("投票超时，请重试");
+      }
+    } catch (error) {
+      console.error("投票流程失败:", error);
+      throw error;
     }
   };
 

@@ -28,7 +28,7 @@ export default function MintPage() {
 
   if (!address) {
     return (
-      <div className="container mx-auto max-w-4xl px-4 py-16">
+      <div className="container mx-auto max-w-6xl px-4 py-16">
         <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center backdrop-blur-xl">
           <h1 className="mb-4 text-3xl font-bold text-white">
             存入 ETH 铸造 vDOT
@@ -48,7 +48,7 @@ export default function MintPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-16">
+    <div className="container mx-auto max-w-6xl px-4 py-16">
       {/* 标题区域 */}
       <div className="mb-8 flex items-center justify-between">
         <div>

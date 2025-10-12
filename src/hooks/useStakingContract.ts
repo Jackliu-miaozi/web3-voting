@@ -7,8 +7,9 @@ import {
   useAccount,
   useChainId,
 } from "wagmi";
-import { formatEther } from "viem";
+import { formatEther, createPublicClient, http } from "viem";
 import { getContractAddress } from "@/config/contracts";
+import { hardhat } from "viem/chains";
 import StakingContractAbi from "@/contracts/abis/StakingContract.json";
 import vDOTAbi from "@/contracts/abis/vDOT.json";
 import VotingTicketAbi from "@/contracts/abis/VotingTicket.json";
@@ -146,6 +147,58 @@ export function useStakingContract() {
     return amount; // 新合约是1:1比例
   };
 
+  // 创建公共客户端用于读取合约数据
+  const publicClient = createPublicClient({
+    chain: hardhat,
+    transport: http(),
+  });
+
+  // 获取用户抵押历史
+  const getUserStakingHistory = async () => {
+    if (!address || !stakeCount) {
+      return [];
+    }
+
+    const stakeCountNum = Number(stakeCount);
+    const history = [];
+
+    for (let i = 0; i < stakeCountNum; i++) {
+      try {
+        const stakeInfo = await publicClient.readContract({
+          address: stakingContractAddress,
+          abi: StakingContractAbi,
+          functionName: "getUserStake",
+          args: [address, BigInt(i)],
+        });
+
+        // 检查投票期是否已开奖
+        const canUnstake = await publicClient.readContract({
+          address: stakingContractAddress,
+          abi: StakingContractAbi,
+          functionName: "canUnstake",
+          args: [address, BigInt(i)],
+        });
+
+        history.push({
+          index: i,
+          amount: formatEther(stakeInfo.amount as bigint),
+          votingPeriodId: Number(stakeInfo.votingPeriodId as bigint),
+          startTime: new Date(Number(stakeInfo.startTime as bigint) * 1000),
+          ticketsMinted: formatEther(stakeInfo.ticketsMinted as bigint),
+          active: stakeInfo.active as boolean,
+          canUnstake: canUnstake as boolean,
+        });
+      } catch (error) {
+        console.error(`Error fetching stake ${i}:`, error);
+      }
+    }
+
+    // 按时间排序（最新的在前）
+    return history.sort(
+      (a, b) => b.startTime.getTime() - a.startTime.getTime(),
+    );
+  };
+
   return {
     // 数据
     vDOTBalance: vDOTBalance ?? BigInt(0),
@@ -158,6 +211,7 @@ export function useStakingContract() {
     stake,
     unstake,
     calculatedTickets,
+    getUserStakingHistory,
 
     // 状态
     isPending: isPending ?? isSending,

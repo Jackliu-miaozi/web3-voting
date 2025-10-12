@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStakingContract } from "@/hooks/useStakingContract";
+import { StakingHistory } from "@/components/minting/StakingHistory";
 
 const LOCK_OPTIONS = [
   { label: "直到开奖后解锁", value: 0, multiplier: 1.0 },
@@ -35,7 +36,7 @@ export default function StakePage() {
   // 监听交易确认
   const { data: receipt, isLoading: isConfirming } =
     useWaitForTransactionReceipt({
-      hash: txHash,
+      hash: txHash ?? undefined, // 修复类型: null 需转为 undefined
     });
 
   // 交易确认后的处理
@@ -380,19 +381,7 @@ export default function StakePage() {
               </Button>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
-              <p className="text-xs tracking-wide text-white/60 uppercase">
-                抵押历史
-              </p>
-              <div className="mt-4 space-y-4 text-sm text-white/70">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
-                  <p className="text-white/50">抵押记录将从智能合约中读取</p>
-                  <p className="mt-1 text-xs text-white/40">
-                    当前抵押记录数: {Number(stakeCount)}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <StakingHistory />
           </aside>
         </section>
       </main>

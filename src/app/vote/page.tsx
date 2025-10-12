@@ -37,6 +37,7 @@ export default function VotePage() {
   const [customYear, setCustomYear] = useState<string>("");
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [ticketsToVote, setTicketsToVote] = useState<string>("");
+  const [longTermApproval, setLongTermApproval] = useState(false);
   const router = useRouter();
 
   const {
@@ -50,6 +51,10 @@ export default function VotePage() {
     ticketBalance,
     completeVote,
     isPending,
+    isApproving,
+    isVoting,
+    isConfirmingApproval,
+    isConfirmingVote,
     voteReceipt,
     refetchTicketBalance,
   } = useVotingContract();
@@ -113,7 +118,7 @@ export default function VotePage() {
       const ticketsToUseBigInt = parseEther(ticketsToVote);
 
       // 调用智能合约进行投票
-      await completeVote(selectedValue, ticketsToUseBigInt);
+      await completeVote(selectedValue, ticketsToUseBigInt, longTermApproval);
 
       // 设置投票选项用于显示
       setVotedOption(selectedLabel);
@@ -137,6 +142,12 @@ export default function VotePage() {
           errorMessage = "投票券余额不足，请检查余额";
         } else if (errorMessage.includes("用户拒绝")) {
           errorMessage = "用户取消了交易";
+        } else if (errorMessage.includes("投票交易哈希未生成")) {
+          errorMessage = "交易提交失败，请检查网络连接并重试";
+        } else if (errorMessage.includes("投票交易提交失败")) {
+          errorMessage = "交易提交失败，请检查网络连接并重试";
+        } else if (errorMessage.includes("投票超时")) {
+          errorMessage = "交易确认超时，请稍后检查交易状态";
         }
       }
 
@@ -228,7 +239,17 @@ export default function VotePage() {
               {/* 操作按钮 */}
               <div className="flex gap-3">
                 <Button
-                  onClick={() => setShowSuccessModal(false)}
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    // 重置所有投票相关状态，让用户可以重新投票
+                    setSelected(null);
+                    setHasSubmitted(false);
+                    setVotedOption("");
+                    setTicketsToVote("");
+                    setCustomYear("");
+                    setShowCustomInput(false);
+                    // 注意：不重置 longTermApproval，保持用户的授权偏好
+                  }}
                   variant="outline"
                   className="flex-1 border-white/20 bg-white/5 text-white hover:bg-white/10"
                 >
@@ -263,7 +284,7 @@ export default function VotePage() {
           </div>
         </div>
 
-        <section className="mx-auto max-w-4xl">
+        <section className="mx-auto max-w-7xl">
           <div className="space-y-6">
             <div className="rounded-3xl border border-white/10 bg-white/10 p-8 backdrop-blur-xl">
               <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -529,24 +550,149 @@ export default function VotePage() {
                 </div>
               </div>
 
+              {/* 长期授权选项 */}
+              <div className="mt-6 rounded-xl border border-orange-500/20 bg-orange-500/10 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/20">
+                      <svg
+                        className="h-4 w-4 text-orange-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-orange-400">
+                        长期授权设置
+                      </h4>
+                      <p className="text-xs text-orange-300/70">
+                        开启后只需授权一次，后续投票无需重复授权
+                      </p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      checked={longTermApproval}
+                      onChange={(e) => setLongTermApproval(e.target.checked)}
+                      className="peer sr-only"
+                      disabled={
+                        hasSubmitted || isPending || isApproving || isVoting
+                      }
+                    />
+                    <div className="peer h-6 w-11 rounded-full bg-white/20 peer-checked:bg-orange-500 peer-focus:ring-4 peer-focus:ring-orange-300/20 peer-focus:outline-none after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white"></div>
+                  </label>
+                </div>
+
+                {longTermApproval && (
+                  <div className="mt-3 rounded-lg bg-orange-500/20 p-3">
+                    <div className="flex items-start gap-2">
+                      <svg
+                        className="mt-0.5 h-4 w-4 flex-shrink-0 text-orange-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <div className="text-xs text-orange-300">
+                        <p className="mb-1 font-medium">⚠️ 长期授权说明：</p>
+                        <ul className="space-y-1 text-orange-300/80">
+                          <li>• 将授权投票合约使用您钱包中的所有投票券</li>
+                          <li>• 后续投票无需重复授权，提升使用体验</li>
+                          <li>• 如需撤销授权，请到钱包中手动撤销</li>
+                          <li>• 建议定期检查授权状态，确保资金安全</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 操作状态提示 */}
+              {(isApproving ||
+                isConfirmingApproval ||
+                isVoting ||
+                isConfirmingVote) && (
+                <div className="mt-4 rounded-xl border border-blue-500/20 bg-blue-500/10 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/20">
+                      <svg
+                        className="h-3 w-3 animate-spin text-blue-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-400">
+                        {isApproving || isConfirmingApproval
+                          ? "步骤 1/2: 授权投票券"
+                          : "步骤 2/2: 执行投票"}
+                      </p>
+                      <p className="text-xs text-blue-300/70">
+                        {isApproving || isConfirmingApproval
+                          ? "正在授权投票合约使用您的投票券..."
+                          : "正在提交您的投票预测..."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <Button
                 onClick={handleSubmit}
                 disabled={
-                  hasSubmitted || !selected || isPending || !ticketsToVote
+                  hasSubmitted ||
+                  !selected ||
+                  isPending ||
+                  isApproving ||
+                  isVoting ||
+                  !ticketsToVote
                 }
                 className="mt-6 w-full border-0 bg-gradient-to-r from-purple-500 to-pink-500 text-lg text-white hover:from-purple-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {hasSubmitted
                   ? "已提交，等待开奖"
-                  : isPending
-                    ? "处理中..."
-                    : !walletConnected
-                      ? "连接钱包"
-                      : !selected
-                        ? "请选择预测年份"
-                        : !ticketsToVote
-                          ? "请输入投票券数量"
-                          : "提交预测"}
+                  : isApproving || isConfirmingApproval
+                    ? "授权投票券中..."
+                    : isVoting || isConfirmingVote
+                      ? "投票处理中..."
+                      : isPending
+                        ? "处理中..."
+                        : !walletConnected
+                          ? "连接钱包"
+                          : !selected
+                            ? "请选择预测年份"
+                            : !ticketsToVote
+                              ? "请输入投票券数量"
+                              : "提交预测"}
               </Button>
               <p className="mt-3 text-center text-xs text-white/50">
                 开奖结果将同步至您的账户和邮箱通知，NFT 奖励将在 24 小时内发放。
