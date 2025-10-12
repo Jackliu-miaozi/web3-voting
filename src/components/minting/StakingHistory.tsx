@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useStakingContract } from "@/hooks/useStakingContract";
 
 interface StakingHistoryItem {
@@ -18,21 +18,21 @@ export function StakingHistory() {
   const [history, setHistory] = useState<StakingHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchHistory = useCallback(async () => {
-    try {
-      setLoading(true);
-      console.log("🔍 Fetching staking history...");
-      const stakingHistory = await getUserStakingHistory();
-      console.log("📊 Staking history received:", stakingHistory);
-      setHistory(stakingHistory);
-    } catch (error) {
-      console.error("Error fetching staking history:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [getUserStakingHistory]);
-
   useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        setLoading(true);
+        console.log("🔍 Fetching staking history...");
+        const stakingHistory = await getUserStakingHistory();
+        console.log("📊 Staking history received:", stakingHistory);
+        setHistory(stakingHistory);
+      } catch (error) {
+        console.error("Error fetching staking history:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     console.log(
       "🔍 StakingHistory useEffect - stakeCount:",
       stakeCount ? Number(stakeCount) : 0,
@@ -45,7 +45,8 @@ export function StakingHistory() {
       setHistory([]);
       setLoading(false);
     }
-  }, [stakeCount, fetchHistory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stakeCount]);
 
   const getStatusInfo = (item: StakingHistoryItem) => {
     if (!item.active) {
