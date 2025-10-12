@@ -101,13 +101,11 @@ export function getDeployedContracts(chainId: number): Record<string, Address> {
   const contracts = getContractAddresses(chainId);
   const deployed: Record<string, Address> = {};
 
-  (Object.entries(contracts)).forEach(
-    ([name, address]) => {
-      if (address !== "0x0000000000000000000000000000000000000000") {
-        deployed[name] = address;
-      }
-    },
-  );
+  Object.entries(contracts).forEach(([name, address]) => {
+    if (address !== "0x0000000000000000000000000000000000000000") {
+      deployed[name] = address;
+    }
+  });
 
   return deployed;
 }
