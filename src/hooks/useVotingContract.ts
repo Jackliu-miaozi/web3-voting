@@ -7,7 +7,7 @@ import {
 import { formatEther, createPublicClient, http } from "viem";
 import { getContractAddress } from "@/config/contracts";
 import { useChainId } from "wagmi";
-import { hardhat } from "viem/chains";
+import { getChainById } from "@/config/chains";
 
 // Import ABIs
 import votingContractAbi from "@/contracts/abis/VotingContract.json";
@@ -34,8 +34,8 @@ export function useVotingContract() {
 
   // Create public client for reading contract data
   const publicClient = createPublicClient({
-    chain: hardhat,
-    transport: http("http://localhost:8545"),
+    chain: getChainById(chainId),
+    transport: http(),
   });
 
   // Read user's voting ticket balance

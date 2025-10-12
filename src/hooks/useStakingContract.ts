@@ -9,7 +9,7 @@ import {
 } from "wagmi";
 import { formatEther, createPublicClient, http } from "viem";
 import { getContractAddress } from "@/config/contracts";
-import { hardhat } from "viem/chains";
+import { getChainById } from "@/config/chains";
 import StakingContractAbi from "@/contracts/abis/StakingContract.json";
 import vDOTAbi from "@/contracts/abis/vDOT.json";
 import VotingTicketAbi from "@/contracts/abis/VotingTicket.json";
@@ -149,7 +149,7 @@ export function useStakingContract() {
 
   // 创建公共客户端用于读取合约数据
   const publicClient = createPublicClient({
-    chain: hardhat,
+    chain: getChainById(chainId),
     transport: http(),
   });
 

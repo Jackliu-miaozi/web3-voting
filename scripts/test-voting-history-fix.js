@@ -1,14 +1,22 @@
-#!/usr/bin/env node
+import { createPublicClient, http } from "viem";
 
-import { createPublicClient, http, formatEther } from "viem";
-import { hardhat } from "viem/chains";
+// Moonbase Alpha configuration
+const moonbaseAlpha = {
+  id: 1287,
+  name: "Moonbase Alpha",
+  rpcUrls: {
+    default: {
+      http: ["https://rpc.api.moonbase.moonbeam.network"],
+    },
+  },
+};
 
-// 合约地址
-const VOTING_CONTRACT_ADDRESS = "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d";
-const TEST_ADDRESS = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+// Contract addresses
+const VOTING_CONTRACT_ADDRESS = "0x0CeCa1B57D8f024c81223ABAE786C643BBBd3F8B";
+const VOTING_TICKET_ADDRESS = "0x911896E86EC581cAD2D919247F5ae2f61F17849C";
 
-// VotingContract ABI (简化版)
-const VOTING_CONTRACT_ABI = [
+// Simple ABI for testing
+const votingContractAbi = [
   {
     inputs: [{ internalType: "address", name: "user", type: "address" }],
     name: "getUserVoteCount",
@@ -32,153 +40,75 @@ const VOTING_CONTRACT_ABI = [
     stateMutability: "view",
     type: "function",
   },
-  {
-    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
-    name: "votingPeriods",
-    outputs: [
-      { internalType: "uint256", name: "startTime", type: "uint256" },
-      { internalType: "uint256", name: "endTime", type: "uint256" },
-      { internalType: "bool", name: "active", type: "bool" },
-      { internalType: "bool", name: "resolved", type: "bool" },
-      { internalType: "uint256", name: "correctAnswerYear", type: "uint256" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
 ];
 
 async function testVotingHistoryFix() {
-  console.log("🧪 测试投票历史修复...\n");
+  console.log("🔧 Testing voting history fix on Moonbase Alpha...\n");
+
+  // Create public client for Moonbase Alpha
+  const publicClient = createPublicClient({
+    chain: moonbaseAlpha,
+    transport: http(),
+  });
 
   try {
-    // 创建客户端
-    const publicClient = createPublicClient({
-      chain: hardhat,
-      transport: http("http://localhost:8545"),
-    });
+    // Test network connection
+    const blockNumber = await publicClient.getBlockNumber();
+    console.log(
+      `✅ Connected to Moonbase Alpha. Current block: ${blockNumber}\n`,
+    );
 
-    console.log(`👤 测试账户: ${TEST_ADDRESS}`);
+    // Test with a sample address (you can replace this with your actual address)
+    const testAddress = "0x5ca3207BA9182A4Afda578f31564DaC377863447"; // Contract owner
 
-    // 获取用户投票数量
+    console.log(`🔍 Testing voting history for address: ${testAddress}`);
+
+    // Get user vote count
     const voteCount = await publicClient.readContract({
       address: VOTING_CONTRACT_ADDRESS,
-      abi: VOTING_CONTRACT_ABI,
+      abi: votingContractAbi,
       functionName: "getUserVoteCount",
-      args: [TEST_ADDRESS],
+      args: [testAddress],
     });
 
-    console.log(`📊 用户投票数量: ${voteCount.toString()}`);
+    console.log(`📊 Vote count: ${voteCount}`);
 
-    if (Number(voteCount) === 0) {
-      console.log("❌ 用户没有投票记录");
-      return;
-    }
+    if (Number(voteCount) > 0) {
+      console.log(`\n📋 Fetching ${Number(voteCount)} voting records...`);
 
-    // 模拟前端逻辑 - 获取投票历史（包含错误处理）
-    console.log("\n📝 模拟前端获取投票历史:");
-    const history = [];
+      for (let i = 0; i < Number(voteCount); i++) {
+        try {
+          const vote = await publicClient.readContract({
+            address: VOTING_CONTRACT_ADDRESS,
+            abi: votingContractAbi,
+            functionName: "getUserVote",
+            args: [testAddress, BigInt(i)],
+          });
 
-    for (let i = 0; i < Number(voteCount); i++) {
-      try {
-        console.log(`  获取投票记录 ${i + 1}...`);
-
-        const vote = await publicClient.readContract({
-          address: VOTING_CONTRACT_ADDRESS,
-          abi: VOTING_CONTRACT_ABI,
-          functionName: "getUserVote",
-          args: [TEST_ADDRESS, BigInt(i)],
-        });
-
-        console.log(`  投票数据:`, vote);
-
-        // Check if vote data is valid
-        if (!vote || vote.length < 5) {
-          console.error(`❌ 投票数据无效 (索引 ${i}):`, vote);
-          continue;
+          console.log(`  Vote ${i + 1}:`, {
+            predictedYear: Number(vote[0]),
+            ticketsUsed: vote[1].toString(),
+            votingPeriodId: Number(vote[2]),
+            timestamp: new Date(Number(vote[3]) * 1000).toLocaleString(),
+            claimed: vote[4],
+          });
+        } catch (error) {
+          console.error(`  ❌ Error fetching vote ${i}:`, error.message);
         }
-
-        const votingPeriodId = vote[2];
-        if (!votingPeriodId) {
-          console.error(`❌ 没有投票期ID (索引 ${i}):`, vote);
-          continue;
-        }
-
-        console.log(`  投票期ID: ${votingPeriodId}`);
-
-        // Get voting period info
-        const period = await publicClient.readContract({
-          address: VOTING_CONTRACT_ADDRESS,
-          abi: VOTING_CONTRACT_ABI,
-          functionName: "votingPeriods",
-          args: [votingPeriodId],
-        });
-
-        console.log(`  投票期数据:`, period);
-
-        // Check if period data is valid
-        if (!period || period.length < 5) {
-          console.error(
-            `❌ 投票期数据无效 (投票期ID ${votingPeriodId}):`,
-            period,
-          );
-          continue;
-        }
-
-        // Format the vote data (模拟前端格式化逻辑)
-        const voteData = {
-          index: i,
-          predictedYear: Number(vote[0]), // predictedYear
-          ticketsUsed: formatEther(vote[1]), // ticketsUsed
-          votingPeriodId: Number(vote[2]), // votingPeriodId
-          timestamp: new Date(Number(vote[3]) * 1000), // timestamp
-          claimed: vote[4], // claimed
-          periodStartTime: new Date(Number(period[0]) * 1000),
-          periodEndTime: new Date(Number(period[1]) * 1000),
-          periodActive: period[2],
-          periodResolved: period[3],
-          correctAnswerYear: Number(period[4]),
-        };
-
-        console.log(`  ✅ 成功格式化投票数据:`, voteData);
-        history.push(voteData);
-      } catch (error) {
-        console.error(`❌ 获取投票 ${i} 失败:`, error.message);
       }
+    } else {
+      console.log("ℹ️  No voting records found for this address");
     }
 
-    console.log(`\n✅ 成功获取 ${history.length} 条投票记录`);
-
-    if (history.length > 0) {
-      console.log("\n📊 投票历史摘要:");
-      history.forEach((item, index) => {
-        const formatYearRange = (year) => {
-          if (year === 0) {
-            return "永不会";
-          }
-          const rangeStart = year % 2 === 0 ? year - 1 : year;
-          const rangeEnd = rangeStart + 2;
-          return `${rangeStart}-${rangeEnd}年`;
-        };
-
-        console.log(
-          `  ${index + 1}. ${formatYearRange(item.predictedYear)} - ${item.ticketsUsed} 张投票券`,
-        );
-      });
-    }
-
-    console.log("\n🎉 投票历史修复测试完成!");
-    console.log("✅ 错误处理已修复，数据可以正常获取和格式化");
+    console.log("\n✅ Voting history test completed!");
+    console.log("\n💡 If you see voting records above, the fix is working!");
+    console.log(
+      "   If you see 'No voting records', that's normal if the address hasn't voted yet.",
+    );
   } catch (error) {
-    console.error("❌ 测试失败:", error.message);
+    console.error("❌ Error testing voting history:", error);
   }
 }
 
-testVotingHistoryFix()
-  .then(() => {
-    console.log("\n✅ 测试完成!");
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error("\n💥 脚本执行错误:", error);
-    process.exit(1);
-  });
+// Run the test
+testVotingHistoryFix().catch(console.error);

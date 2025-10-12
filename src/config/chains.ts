@@ -76,6 +76,47 @@ export const moonriver = defineChain({
 });
 
 /**
+ * Moonbase Alpha Network Configuration
+ * Moonbeam testnet for development and testing
+ */
+export const moonbaseAlpha = defineChain({
+  id: 1287,
+  name: "Moonbase Alpha",
+  network: "moonbase-alpha",
+  nativeCurrency: {
+    decimals: 18,
+    name: "DEV",
+    symbol: "DEV",
+  },
+  rpcUrls: {
+    default: {
+      http: [
+        process.env.NEXT_PUBLIC_MOONBASE_ALPHA_RPC_URL ??
+          "https://rpc.api.moonbase.moonbeam.network",
+      ],
+      webSocket: ["wss://wss.api.moonbase.moonbeam.network"],
+    },
+    public: {
+      http: ["https://rpc.api.moonbase.moonbeam.network"],
+      webSocket: ["wss://wss.api.moonbase.moonbeam.network"],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "Moonscan",
+      url: "https://moonbase.moonscan.io",
+    },
+  },
+  contracts: {
+    multicall3: {
+      address: "0xcA11bde05977b3631167028862bE2a173976CA11",
+      blockCreated: 1850686,
+    },
+  },
+  testnet: true,
+});
+
+/**
  * Hardhat Local Network Configuration
  * For local development and testing
  */
@@ -102,4 +143,30 @@ export const hardhat = defineChain({
 /**
  * Supported chains for the application
  */
-export const supportedChains = [moonbeam, moonriver, hardhat] as const;
+export const supportedChains = [
+  moonbaseAlpha,
+  moonbeam,
+  moonriver,
+  hardhat,
+] as const;
+
+/**
+ * Get chain configuration by chain ID
+ */
+export function getChainById(chainId: number) {
+  switch (chainId) {
+    case 1287:
+      return moonbaseAlpha;
+    case 1284:
+      return moonbeam;
+    case 1285:
+      return moonriver;
+    case 31337:
+      return hardhat;
+    default:
+      console.warn(
+        `Unsupported chain ID: ${chainId}, falling back to Moonbase Alpha`,
+      );
+      return moonbaseAlpha;
+  }
+}

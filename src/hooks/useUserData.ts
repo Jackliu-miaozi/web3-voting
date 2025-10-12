@@ -338,11 +338,11 @@ export function useUserStakeDetails() {
       try {
         // 创建公共客户端
         const { createPublicClient, http } = await import("viem");
-        const { hardhat } = await import("viem/chains");
+        const { getChainById } = await import("@/config/chains");
 
         const client = createPublicClient({
-          chain: hardhat,
-          transport: http("http://127.0.0.1:8545"),
+          chain: getChainById(chainId),
+          transport: http(),
         });
 
         // 遍历所有抵押记录
@@ -396,7 +396,7 @@ export function useUserStakeDetails() {
     };
 
     void fetchStakeDetails();
-  }, [address, stakeCount, stakingContractAddress]);
+  }, [address, stakeCount, stakingContractAddress, chainId]);
 
   return {
     ...stakeDetails,

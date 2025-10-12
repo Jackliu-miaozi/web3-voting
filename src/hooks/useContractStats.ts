@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createPublicClient, http, type PublicClient } from "viem";
-import { hardhat } from "viem/chains";
+import { useChainId } from "wagmi";
+import { getChainById } from "@/config/chains";
 import { getContractAddress } from "@/config/contracts";
 import vDOTAbi from "@/contracts/abis/vDOT.json";
 import StakingContractAbi from "@/contracts/abis/StakingContract.json";
@@ -31,6 +32,7 @@ function formatNumber(value: bigint, decimals = 18): string {
  * 使用公共客户端直接读取合约数据，不依赖钱包连接
  */
 export function useContractStats() {
+  const chainId = useChainId();
   const [stats, setStats] = useState({
     totalMinted: "0",
     totalStaked: "0",
@@ -45,16 +47,16 @@ export function useContractStats() {
 
     const fetchStats = async () => {
       try {
-        // 创建公共客户端连接到 Hardhat 本地网络
+        // 创建公共客户端连接到当前网络
         const client = createPublicClient({
-          chain: hardhat,
-          transport: http("http://127.0.0.1:8545"),
+          chain: getChainById(chainId),
+          transport: http(),
         });
 
         // 获取合约地址
-        const vDOTAddress = getContractAddress(31337, "vDOT");
+        const vDOTAddress = getContractAddress(chainId, "vDOT");
         const stakingContractAddress = getContractAddress(
-          31337,
+          chainId,
           "StakingContract",
         );
 
@@ -116,7 +118,7 @@ export function useContractStats() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [chainId]);
 
   return stats;
 }

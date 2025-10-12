@@ -8,16 +8,6 @@
       },
       {
         "internalType": "address",
-        "name": "_ethPriceFeed",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_bnbPriceFeed",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
         "name": "_votingContract",
         "type": "address"
       }
@@ -61,6 +51,82 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newSupply",
+        "type": "uint256"
+      }
+    ],
+    "name": "BTCSupplyUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "competitorId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "priceFeed",
+        "type": "address"
+      }
+    ],
+    "name": "CompetitorAdded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "competitorId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "active",
+        "type": "bool"
+      }
+    ],
+    "name": "CompetitorStatusChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "competitorId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newSupply",
+        "type": "uint256"
+      }
+    ],
+    "name": "CompetitorUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
         "internalType": "uint256",
         "name": "votingPeriodId",
@@ -75,13 +141,13 @@
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "ethCap",
+        "name": "highestCompetitorCap",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "bnbCap",
+        "name": "winningCompetitorId",
         "type": "uint256"
       }
     ],
@@ -178,6 +244,25 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "votingPeriodId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "correctYear",
+        "type": "uint256"
+      }
+    ],
+    "name": "VotingPeriodFinalized",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "SNAPSHOT_INTERVAL",
     "outputs": [
@@ -193,6 +278,42 @@
   {
     "inputs": [],
     "name": "VOTING_DURATION",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "priceFeed",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "circulatingSupply",
+        "type": "uint256"
+      }
+    ],
+    "name": "addCompetitor",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "btcCirculatingSupply",
     "outputs": [
       {
         "internalType": "uint256",
@@ -224,6 +345,58 @@
   },
   {
     "inputs": [],
+    "name": "competitorCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "competitors",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "priceFeed",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "circulatingSupply",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "isActive",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "lastUpdatedTime",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "currentVotingPeriod",
     "outputs": [
       {
@@ -236,13 +409,53 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "votingPeriodId",
+        "type": "uint256"
+      }
+    ],
+    "name": "finalizeVotingPeriod",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
-    "name": "getBNBPrice",
+    "name": "getAllCompetitors",
     "outputs": [
       {
-        "internalType": "int256",
+        "components": [
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "priceFeed",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "circulatingSupply",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "isActive",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastUpdatedTime",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct BTCOracle.CompetitorChain[]",
         "name": "",
-        "type": "int256"
+        "type": "tuple[]"
       }
     ],
     "stateMutability": "view",
@@ -262,13 +475,75 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "getETHPrice",
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "competitorId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getCompetitorInfo",
     "outputs": [
       {
-        "internalType": "int256",
+        "components": [
+          {
+            "internalType": "string",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "internalType": "address",
+            "name": "priceFeed",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "circulatingSupply",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bool",
+            "name": "isActive",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastUpdatedTime",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct BTCOracle.CompetitorChain",
         "name": "",
-        "type": "int256"
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "votingPeriodId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "snapshotIndex",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "competitorId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getCompetitorMarketCap",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -282,39 +557,95 @@
         "type": "uint256"
       }
     ],
-    "name": "getLatestSnapshot",
+    "name": "getLatestSnapshotInfo",
     "outputs": [
       {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "timestamp",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "btcMarketCap",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "ethMarketCap",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "bnbMarketCap",
-            "type": "uint256"
-          },
-          {
-            "internalType": "enum BTCOracle.VoteResult",
-            "name": "result",
-            "type": "uint8"
-          }
-        ],
-        "internalType": "struct BTCOracle.MarketSnapshot",
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "btcMarketCap",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "highestCompetitorCap",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "winningCompetitorId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "enum BTCOracle.VoteResult",
+        "name": "result",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "votingPeriodId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "snapshotIndex",
+        "type": "uint256"
+      }
+    ],
+    "name": "getSnapshot",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "btcCap",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "highestCompetitorCap",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "winningCompetitorId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "enum BTCOracle.VoteResult",
+        "name": "result",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "votingPeriodId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getSnapshotCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
         "name": "",
-        "type": "tuple"
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -347,39 +678,12 @@
         "type": "uint256"
       }
     ],
-    "name": "getVotingPeriodSnapshots",
+    "name": "isVotingPeriodResolved",
     "outputs": [
       {
-        "components": [
-          {
-            "internalType": "uint256",
-            "name": "timestamp",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "btcMarketCap",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "ethMarketCap",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "bnbMarketCap",
-            "type": "uint256"
-          },
-          {
-            "internalType": "enum BTCOracle.VoteResult",
-            "name": "result",
-            "type": "uint8"
-          }
-        ],
-        "internalType": "struct BTCOracle.MarketSnapshot[]",
+        "internalType": "bool",
         "name": "",
-        "type": "tuple[]"
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -440,6 +744,24 @@
   {
     "inputs": [],
     "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "competitorId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "active",
+        "type": "bool"
+      }
+    ],
+    "name": "setCompetitorActive",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -532,6 +854,37 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "newSupply",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateBTCSupply",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "competitorId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newSupply",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateCompetitorSupply",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "newVotingContract",
         "type": "address"
@@ -582,12 +935,12 @@
       },
       {
         "internalType": "uint256",
-        "name": "ethMarketCap",
+        "name": "highestCompetitorCap",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "bnbMarketCap",
+        "name": "winningCompetitorId",
         "type": "uint256"
       },
       {

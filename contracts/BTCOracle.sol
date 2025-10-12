@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "./interfaces/IVotingContract.sol";
 
 /**
  * @title BTCOracle
@@ -13,8 +14,15 @@ import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 contract BTCOracle is Ownable, Pausable {
     // Chainlink 数据源接口
     AggregatorV3Interface internal btcPriceFeed;
-    AggregatorV3Interface internal ethPriceFeed;
-    AggregatorV3Interface internal bnbPriceFeed;
+
+    // 竞争链配置
+    struct CompetitorChain {
+        string name;                           // 链名称（如 "Ethereum", "Solana"）
+        address priceFeed;                     // Chainlink 价格源地址
+        uint256 circulatingSupply;             // 流通供应量
+        bool isActive;                         // 是否激活
+        uint256 lastUpdatedTime;               // 最后更新时间
+    }
 
     // 市值阈值配置
     struct MarketCapThreshold {
@@ -37,12 +45,13 @@ contract BTCOracle is Ownable, Pausable {
         uint256 actualYear;     // 实际超越年份（0表示未超越）
     }
 
-    // 投票期数据快照
+    // 投票期数据快照（支持多竞争链）
     struct MarketSnapshot {
         uint256 timestamp;
         uint256 btcMarketCap;
-        uint256 ethMarketCap;
-        uint256 bnbMarketCap;
+        mapping(uint256 => uint256) competitorMarketCaps; // 各竞争链市值
+        uint256 highestCompetitorCap;                    // 最高竞争链市值
+        uint256 winningCompetitorId;                     // 获胜竞争链ID（如果有）
         VoteResult result;
     }
 
@@ -55,23 +64,29 @@ contract BTCOracle is Ownable, Pausable {
     mapping(uint256 => MarketCapThreshold) public thresholds;
     mapping(uint256 => uint256) public lastSnapshotTime;
 
+    // 多竞争链配置
+    mapping(uint256 => CompetitorChain) public competitors;
+    uint256 public competitorCount;
+    uint256 public btcCirculatingSupply = 19500000e8; // BTC 流通供应量（8位精度）
+
     address public votingContract; // 投票合约地址
     uint256 public currentVotingPeriod;
 
     // 事件
-    event MarketSnapshotTaken(uint256 indexed votingPeriodId, uint256 btcCap, uint256 ethCap, uint256 bnbCap);
+    event MarketSnapshotTaken(uint256 indexed votingPeriodId, uint256 btcCap, uint256 highestCompetitorCap, uint256 winningCompetitorId);
     event ThresholdUpdated(uint256 indexed votingPeriodId, uint256 btcThreshold, uint256 competitorThreshold);
     event VotingContractUpdated(address oldContract, address newContract);
+    event CompetitorAdded(uint256 indexed competitorId, string name, address priceFeed);
+    event CompetitorUpdated(uint256 indexed competitorId, uint256 newSupply);
+    event CompetitorStatusChanged(uint256 indexed competitorId, bool active);
+    event VotingPeriodFinalized(uint256 indexed votingPeriodId, uint256 correctYear);
+    event BTCSupplyUpdated(uint256 newSupply);
 
     constructor(
         address _btcPriceFeed,
-        address _ethPriceFeed,
-        address _bnbPriceFeed,
         address _votingContract
     ) Ownable(msg.sender) {
         btcPriceFeed = AggregatorV3Interface(_btcPriceFeed);
-        ethPriceFeed = AggregatorV3Interface(_ethPriceFeed);
-        bnbPriceFeed = AggregatorV3Interface(_bnbPriceFeed);
         votingContract = _votingContract;
 
         // 初始化第一个投票期阈值
@@ -111,113 +126,230 @@ contract BTCOracle is Ownable, Pausable {
         return uint256(price) * supply / 1e8; // Chainlink 返回8位精度
     }
 
+    // ============ 竞争链管理功能 ============
+
+    /**
+     * @dev 添加竞争链
+     * @param name 链名称
+     * @param priceFeed Chainlink 价格源地址
+     * @param circulatingSupply 流通供应量
+     */
+    function addCompetitor(
+        string memory name,
+        address priceFeed,
+        uint256 circulatingSupply
+    ) external onlyOwner {
+        require(priceFeed != address(0), "Invalid price feed address");
+        require(circulatingSupply > 0, "Invalid circulating supply");
+
+        uint256 competitorId = competitorCount;
+        competitors[competitorId] = CompetitorChain({
+            name: name,
+            priceFeed: priceFeed,
+            circulatingSupply: circulatingSupply,
+            isActive: true,
+            lastUpdatedTime: block.timestamp
+        });
+        
+        competitorCount++;
+        emit CompetitorAdded(competitorId, name, priceFeed);
+    }
+
+    /**
+     * @dev 更新竞争链供应量
+     * @param competitorId 竞争链ID
+     * @param newSupply 新的流通供应量
+     */
+    function updateCompetitorSupply(
+        uint256 competitorId,
+        uint256 newSupply
+    ) external onlyOwner {
+        require(competitorId < competitorCount, "Competitor does not exist");
+        require(newSupply > 0, "Invalid circulating supply");
+
+        competitors[competitorId].circulatingSupply = newSupply;
+        competitors[competitorId].lastUpdatedTime = block.timestamp;
+        emit CompetitorUpdated(competitorId, newSupply);
+    }
+
+    /**
+     * @dev 启用/禁用竞争链
+     * @param competitorId 竞争链ID
+     * @param active 是否激活
+     */
+    function setCompetitorActive(
+        uint256 competitorId,
+        bool active
+    ) external onlyOwner {
+        require(competitorId < competitorCount, "Competitor does not exist");
+
+        competitors[competitorId].isActive = active;
+        competitors[competitorId].lastUpdatedTime = block.timestamp;
+        emit CompetitorStatusChanged(competitorId, active);
+    }
+
+    /**
+     * @dev 更新 BTC 供应量
+     * @param newSupply 新的流通供应量
+     */
+    function updateBTCSupply(uint256 newSupply) external onlyOwner {
+        require(newSupply > 0, "Invalid BTC supply");
+        btcCirculatingSupply = newSupply;
+        emit BTCSupplyUpdated(newSupply);
+    }
+
     /**
      * @dev 拍摄市场快照并判定结果
      * @param votingPeriodId 投票期ID
      */
     function takeMarketSnapshot(uint256 votingPeriodId) external whenNotPaused {
-        require(thresholds[votingPeriodId].isActive, "Threshold not set for voting period");
-        require(
-            block.timestamp >= lastSnapshotTime[votingPeriodId] + SNAPSHOT_INTERVAL,
-            "Snapshot interval not reached"
-        );
+        require(thresholds[votingPeriodId].isActive, "Threshold not set");
+        
+        // 移除时间间隔限制，允许随时拍摄快照
+        // require(
+        //     block.timestamp >= lastSnapshotTime[votingPeriodId] + SNAPSHOT_INTERVAL,
+        //     "Snapshot interval not reached"
+        // );
 
         // 获取市值数据
-        (uint256 btcMarketCap, uint256 ethMarketCap, uint256 bnbMarketCap) = _getMarketCaps();
+        (uint256 btcCap, uint256[] memory competitorCaps) = _getMarketCaps();
         
-        // 判定结果并保存快照
-        VoteResult result = _determineAndSaveSnapshot(votingPeriodId, btcMarketCap, ethMarketCap, bnbMarketCap);
-
-        // 如果投票期结束且有明确结果，通知投票合约
-        if (block.timestamp >= getVotingEndTime(votingPeriodId) && result != VoteResult.PENDING) {
-            // 计算年份范围结果并调用投票合约开奖
-            uint256 correctYear = _calculateCorrectYear(votingPeriodId, result);
-            _notifyVotingContract(votingPeriodId, correctYear);
-        }
-    }
-
-    /**
-     * @dev 获取市值数据
-     */
-    function _getMarketCaps() internal view returns (uint256, uint256, uint256) {
-        // 获取最新价格
-        int256 btcPrice = getLatestPrice(btcPriceFeed);
-        int256 ethPrice = getLatestPrice(ethPriceFeed);
-        int256 bnbPrice = getLatestPrice(bnbPriceFeed);
-
-        // 简化计算：使用固定供应量（实际项目中应从数据源获取）
-        uint256 btcSupply = 19500000; // 比特币流通供应量（约1950万）
-        uint256 ethSupply = 120000000; // 以太坊流通供应量（约1.2亿）
-        uint256 bnbSupply = 155000000; // BNB流通供应量（约1.55亿）
-
-        // 计算市值
-        uint256 btcMarketCap = calculateMarketCap(btcPrice, btcSupply);
-        uint256 ethMarketCap = calculateMarketCap(ethPrice, ethSupply);
-        uint256 bnbMarketCap = calculateMarketCap(bnbPrice, bnbSupply);
-
-        return (btcMarketCap, ethMarketCap, bnbMarketCap);
-    }
-
-    /**
-     * @dev 判定结果并保存快照
-     */
-    function _determineAndSaveSnapshot(
-        uint256 votingPeriodId,
-        uint256 btcMarketCap,
-        uint256 ethMarketCap,
-        uint256 bnbMarketCap
-    ) internal returns (VoteResult) {
-        // 获取竞争链最大市值（ETH 或 BNB）
-        uint256 maxCompetitorCap = ethMarketCap > bnbMarketCap ? ethMarketCap : bnbMarketCap;
-
+        // 找出最高市值的竞争链
+        (uint256 highestCap, uint256 winnerId) = _findHighestCompetitor(competitorCaps);
+        
         // 判定结果
-        MarketCapThreshold memory threshold = thresholds[votingPeriodId];
-        VoteResult result;
-
-        if (btcMarketCap >= threshold.btcMarketCap) {
-            result = VoteResult.BTC_DOMINANT;
-        } else if (maxCompetitorCap >= threshold.competitorCap) {
+        VoteResult result = VoteResult.PENDING;
+        if (highestCap > btcCap) {
             result = VoteResult.COMPETITOR_WIN;
         } else {
-            result = VoteResult.PENDING;
+            result = VoteResult.BTC_DOMINANT;
         }
-
+        
         // 保存快照
-        MarketSnapshot memory snapshot = MarketSnapshot({
-            timestamp: block.timestamp,
-            btcMarketCap: btcMarketCap,
-            ethMarketCap: ethMarketCap,
-            bnbMarketCap: bnbMarketCap,
-            result: result
-        });
-
-        votingPeriodSnapshots[votingPeriodId].push(snapshot);
-        lastSnapshotTime[votingPeriodId] = block.timestamp;
-
-        emit MarketSnapshotTaken(votingPeriodId, btcMarketCap, ethMarketCap, bnbMarketCap);
-
-        return result;
+        _saveSnapshot(votingPeriodId, btcCap, competitorCaps, highestCap, winnerId, result);
+        
+        // 如果投票期结束且有竞争链获胜，立即开奖
+        if (block.timestamp >= getVotingEndTime(votingPeriodId)) {
+            if (result == VoteResult.COMPETITOR_WIN) {
+                // 计算正确年份并开奖
+                uint256 correctYear = _calculateCorrectYear(block.timestamp);
+                _notifyVotingContract(votingPeriodId, correctYear);
+            }
+            // 如果 BTC 依然主导，等待投票期完全结束后设置为"永不会"
+        }
     }
 
     /**
-     * @dev 计算正确答案年份
-     * @param votingPeriodId 投票期ID
-     * @param result 投票结果
+     * @dev 获取市值数据（支持多竞争链）
+     */
+    function _getMarketCaps() internal view returns (
+        uint256 btcCap,
+        uint256[] memory competitorCaps
+    ) {
+        // 获取 BTC 市值
+        int256 btcPrice = getLatestPrice(btcPriceFeed);
+        require(btcPrice > 0, "Invalid BTC price");
+        btcCap = calculateMarketCap(btcPrice, btcCirculatingSupply);
+        
+        // 获取所有激活的竞争链市值
+        competitorCaps = new uint256[](competitorCount);
+        for (uint256 i = 0; i < competitorCount; i++) {
+            if (competitors[i].isActive) {
+                int256 price = getLatestPrice(
+                    AggregatorV3Interface(competitors[i].priceFeed)
+                );
+                if (price > 0) {
+                    competitorCaps[i] = calculateMarketCap(
+                        price,
+                        competitors[i].circulatingSupply
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * @dev 找出最高市值的竞争链
+     */
+    function _findHighestCompetitor(uint256[] memory caps) 
+        internal 
+        view 
+        returns (uint256 highestCap, uint256 winnerId) 
+    {
+        for (uint256 i = 0; i < caps.length; i++) {
+            if (caps[i] > highestCap) {
+                highestCap = caps[i];
+                winnerId = i;
+            }
+        }
+    }
+
+    /**
+     * @dev 保存快照
+     */
+    function _saveSnapshot(
+        uint256 votingPeriodId,
+        uint256 btcCap,
+        uint256[] memory competitorCaps,
+        uint256 highestCap,
+        uint256 winnerId,
+        VoteResult result
+    ) internal {
+        MarketSnapshot storage snapshot = votingPeriodSnapshots[votingPeriodId].push();
+        snapshot.timestamp = block.timestamp;
+        snapshot.btcMarketCap = btcCap;
+        snapshot.highestCompetitorCap = highestCap;
+        snapshot.winningCompetitorId = winnerId;
+        snapshot.result = result;
+
+        // 保存各竞争链市值
+        for (uint256 i = 0; i < competitorCaps.length; i++) {
+            snapshot.competitorMarketCaps[i] = competitorCaps[i];
+        }
+
+        lastSnapshotTime[votingPeriodId] = block.timestamp;
+
+        emit MarketSnapshotTaken(votingPeriodId, btcCap, highestCap, winnerId);
+    }
+
+    /**
+     * @dev 计算正确答案年份（基于超越时间）
+     * @param timestamp 超越发生的时间戳
      * @return 正确答案年份（0表示永不会）
      */
-    function _calculateCorrectYear(uint256 votingPeriodId, VoteResult result) internal view returns (uint256) {
-        if (result == VoteResult.BTC_DOMINANT) {
-            return 0; // 永不会
-        } else if (result == VoteResult.COMPETITOR_WIN) {
-            // 根据投票期开始时间计算实际超越年份
-            uint256 periodStartTime = _getVotingPeriodStartTime(votingPeriodId);
-            uint256 yearsElapsed = (block.timestamp - periodStartTime) / 365 days;
-            
-            // 返回奇数年（符合UI逻辑）
-            uint256 currentYear = 2025 + yearsElapsed;
-            return currentYear % 2 == 0 ? currentYear + 1 : currentYear;
+    function _calculateCorrectYear(uint256 timestamp) 
+        internal 
+        pure 
+        returns (uint256) 
+    {
+        uint256 year = (timestamp / 365 days) + 1970; // 简化计算
+        // 返回最接近的奇数年
+        if (year % 2 == 0) {
+            year += 1;
         }
-        return 0; // 默认永不会
+        return year;
+    }
+
+    /**
+     * @dev 手动触发投票期结算（投票期结束后可调用）
+     * @param votingPeriodId 投票期ID
+     */
+    function finalizeVotingPeriod(uint256 votingPeriodId) external onlyOwner {
+        require(block.timestamp >= getVotingEndTime(votingPeriodId), "Period not ended");
+        require(!isVotingPeriodResolved(votingPeriodId), "Already resolved");
+        
+        // 获取最新快照判断结果
+        MarketSnapshot storage snapshot = _getLatestSnapshot(votingPeriodId);
+        
+        uint256 correctYear;
+        if (snapshot.result == VoteResult.COMPETITOR_WIN) {
+            correctYear = _calculateCorrectYear(snapshot.timestamp);
+        } else {
+            correctYear = 0; // 永不会
+        }
+        
+        _notifyVotingContract(votingPeriodId, correctYear);
+        emit VotingPeriodFinalized(votingPeriodId, correctYear);
     }
 
     /**
@@ -225,9 +357,9 @@ contract BTCOracle is Ownable, Pausable {
      * @param votingPeriodId 投票期ID
      */
     function _getVotingPeriodStartTime(uint256 votingPeriodId) internal view returns (uint256) {
-        // 这里需要从投票合约获取实际的投票期开始时间
-        // 暂时使用固定时间作为示例
-        return block.timestamp - (block.timestamp % (365 days));
+        IVotingContract voting = IVotingContract(votingContract);
+        (uint256 startTime,,,,) = voting.votingPeriods(votingPeriodId);
+        return startTime;
     }
 
     /**
@@ -236,10 +368,7 @@ contract BTCOracle is Ownable, Pausable {
      * @param correctYear 正确答案年份
      */
     function _notifyVotingContract(uint256 votingPeriodId, uint256 correctYear) internal {
-        // 这里需要调用投票合约的 resolveVotingPeriod 函数
-        // 注意：需要确保投票合约授权本合约调用开奖函数
-        // 示例代码（需要根据实际投票合约接口调整）：
-        // IVotingContract(votingContract).resolveVotingPeriod(votingPeriodId, correctYear);
+        IVotingContract(votingContract).resolveVotingPeriod(votingPeriodId, correctYear);
     }
 
     /**
@@ -247,27 +376,48 @@ contract BTCOracle is Ownable, Pausable {
      * @param votingPeriodId 投票期ID
      */
     function getVotingEndTime(uint256 votingPeriodId) public view returns (uint256) {
-        // 这里应该从投票合约获取投票期信息
-        // 暂时使用固定时间作为示例
-        return block.timestamp - (block.timestamp % VOTING_DURATION) + VOTING_DURATION;
+        IVotingContract voting = IVotingContract(votingContract);
+        (,uint256 endTime,,,) = voting.votingPeriods(votingPeriodId);
+        return endTime;
     }
 
     /**
-     * @dev 获取投票期的最新快照
+     * @dev 获取投票期的最新快照（内部使用）
      * @param votingPeriodId 投票期ID
      */
-    function getLatestSnapshot(uint256 votingPeriodId) external view returns (MarketSnapshot memory) {
-        MarketSnapshot[] memory snapshots = votingPeriodSnapshots[votingPeriodId];
+    function _getLatestSnapshot(uint256 votingPeriodId) internal view returns (MarketSnapshot storage) {
+        MarketSnapshot[] storage snapshots = votingPeriodSnapshots[votingPeriodId];
         require(snapshots.length > 0, "No snapshots available");
         return snapshots[snapshots.length - 1];
     }
 
     /**
-     * @dev 获取投票期的所有快照
+     * @dev 获取投票期的最新快照（外部查询）
      * @param votingPeriodId 投票期ID
      */
-    function getVotingPeriodSnapshots(uint256 votingPeriodId) external view returns (MarketSnapshot[] memory) {
-        return votingPeriodSnapshots[votingPeriodId];
+    function getLatestSnapshotInfo(uint256 votingPeriodId) external view returns (
+        uint256 timestamp,
+        uint256 btcMarketCap,
+        uint256 highestCompetitorCap,
+        uint256 winningCompetitorId,
+        VoteResult result
+    ) {
+        MarketSnapshot storage snapshot = _getLatestSnapshot(votingPeriodId);
+        return (
+            snapshot.timestamp,
+            snapshot.btcMarketCap,
+            snapshot.highestCompetitorCap,
+            snapshot.winningCompetitorId,
+            snapshot.result
+        );
+    }
+
+    /**
+     * @dev 获取投票期的快照数量
+     * @param votingPeriodId 投票期ID
+     */
+    function getSnapshotCount(uint256 votingPeriodId) external view returns (uint256) {
+        return votingPeriodSnapshots[votingPeriodId].length;
     }
 
     /**
@@ -303,24 +453,114 @@ contract BTCOracle is Ownable, Pausable {
     }
 
     /**
+     * @dev 更新 BTC 价格源地址（仅管理员）
+     * @param newPriceFeed 新价格源地址
+     */
+    function updateBTCPriceFeed(address newPriceFeed) external onlyOwner {
+        require(newPriceFeed != address(0), "Invalid price feed address");
+        btcPriceFeed = AggregatorV3Interface(newPriceFeed);
+        
+        // 测试新价格源是否工作
+        try this.getBTCPrice() returns (int256) {
+            // 价格源工作正常
+        } catch {
+            revert("New price feed is not working");
+        }
+    }
+
+    /**
      * @dev 获取BTC价格
      */
     function getBTCPrice() external view returns (int256) {
         return getLatestPrice(btcPriceFeed);
     }
 
+    // ============ 查询接口 ============
+
     /**
-     * @dev 获取ETH价格
+     * @dev 获取竞争链信息
+     * @param competitorId 竞争链ID
      */
-    function getETHPrice() external view returns (int256) {
-        return getLatestPrice(ethPriceFeed);
+    function getCompetitorInfo(uint256 competitorId) 
+        external 
+        view 
+        returns (CompetitorChain memory) 
+    {
+        require(competitorId < competitorCount, "Competitor does not exist");
+        return competitors[competitorId];
     }
 
     /**
-     * @dev 获取BNB价格
+     * @dev 获取所有竞争链信息
      */
-    function getBNBPrice() external view returns (int256) {
-        return getLatestPrice(bnbPriceFeed);
+    function getAllCompetitors() 
+        external 
+        view 
+        returns (CompetitorChain[] memory) 
+    {
+        CompetitorChain[] memory allCompetitors = new CompetitorChain[](competitorCount);
+        for (uint256 i = 0; i < competitorCount; i++) {
+            allCompetitors[i] = competitors[i];
+        }
+        return allCompetitors;
+    }
+
+    /**
+     * @dev 获取指定快照信息
+     * @param votingPeriodId 投票期ID
+     * @param snapshotIndex 快照索引
+     */
+    function getSnapshot(uint256 votingPeriodId, uint256 snapshotIndex) 
+        external 
+        view 
+        returns (
+            uint256 timestamp,
+            uint256 btcCap,
+            uint256 highestCompetitorCap,
+            uint256 winningCompetitorId,
+            VoteResult result
+        ) 
+    {
+        require(snapshotIndex < votingPeriodSnapshots[votingPeriodId].length, "Snapshot does not exist");
+        MarketSnapshot storage snapshot = votingPeriodSnapshots[votingPeriodId][snapshotIndex];
+        
+        return (
+            snapshot.timestamp,
+            snapshot.btcMarketCap,
+            snapshot.highestCompetitorCap,
+            snapshot.winningCompetitorId,
+            snapshot.result
+        );
+    }
+
+    /**
+     * @dev 获取竞争链在指定快照中的市值
+     * @param votingPeriodId 投票期ID
+     * @param snapshotIndex 快照索引
+     * @param competitorId 竞争链ID
+     */
+    function getCompetitorMarketCap(
+        uint256 votingPeriodId, 
+        uint256 snapshotIndex, 
+        uint256 competitorId
+    ) external view returns (uint256) {
+        require(snapshotIndex < votingPeriodSnapshots[votingPeriodId].length, "Snapshot does not exist");
+        MarketSnapshot storage snapshot = votingPeriodSnapshots[votingPeriodId][snapshotIndex];
+        return snapshot.competitorMarketCaps[competitorId];
+    }
+
+    /**
+     * @dev 检查投票期是否已开奖
+     * @param votingPeriodId 投票期ID
+     */
+    function isVotingPeriodResolved(uint256 votingPeriodId) 
+        public 
+        view 
+        returns (bool) 
+    {
+        IVotingContract voting = IVotingContract(votingContract);
+        (,,,bool resolved,) = voting.votingPeriods(votingPeriodId);
+        return resolved;
     }
 
     /**
@@ -338,10 +578,10 @@ contract BTCOracle is Ownable, Pausable {
     }
 
     /**
-     * @dev 检查快照是否可用
+     * @dev 检查快照是否可用（时间限制已移除，始终返回 true）
      * @param votingPeriodId 投票期ID
      */
     function canTakeSnapshot(uint256 votingPeriodId) external view returns (bool) {
-        return block.timestamp >= lastSnapshotTime[votingPeriodId] + SNAPSHOT_INTERVAL;
+        return thresholds[votingPeriodId].isActive;
     }
 }

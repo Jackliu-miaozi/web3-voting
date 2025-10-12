@@ -1,6 +1,6 @@
 import { cookieStorage, createConfig, createStorage, http } from "wagmi";
 import { injected } from "wagmi/connectors";
-import { moonbeam, moonriver, hardhat } from "./chains";
+import { moonbaseAlpha, moonbeam, moonriver, hardhat } from "./chains";
 
 // Get WalletConnect project ID from environment - only on client side
 const projectId =
@@ -34,7 +34,7 @@ function createWagmiConfig() {
   // }
 
   return createConfig({
-    chains: [moonbeam, moonriver, hardhat],
+    chains: [moonbaseAlpha, moonbeam, moonriver, hardhat],
     connectors,
     storage: createStorage({
       storage: cookieStorage,
@@ -42,6 +42,7 @@ function createWagmiConfig() {
     ssr: true,
     multiInjectedProviderDiscovery: false, // Prevent multiple provider detection
     transports: {
+      [moonbaseAlpha.id]: http(),
       [moonbeam.id]: http(),
       [moonriver.id]: http(),
       [hardhat.id]: http(),
