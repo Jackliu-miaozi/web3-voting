@@ -284,128 +284,249 @@ export default function VotePage() {
                 )}
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                {OPTIONS.map((option) => {
-                  const isActive = selected === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      onClick={() => !hasSubmitted && setSelected(option.value)}
-                      className={`rounded-2xl border p-5 text-left transition ${
-                        isActive
-                          ? "border-white/50 bg-white/15"
-                          : "border-white/10 bg-white/5 hover:border-white/20"
-                      } ${hasSubmitted ? "cursor-not-allowed opacity-60" : ""}`}
-                      disabled={hasSubmitted}
-                    >
-                      <p className="text-lg font-semibold text-white">
-                        {option.label}
-                      </p>
-                      <p className="mt-2 text-sm text-white/60">
-                        {option.description}
-                      </p>
-                      {isActive && (
-                        <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/50 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-200">
-                          <span className="flex h-2 w-2 rounded-full bg-cyan-400" />
-                          已选择
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+              {/* 年份选择滚动容器 */}
+              <div className="scrollbar-thin scrollbar-track-white/5 scrollbar-thumb-white/20 hover:scrollbar-thumb-white/30 max-h-80 overflow-y-auto rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {OPTIONS.map((option) => {
+                    const isActive = selected === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() =>
+                          !hasSubmitted && setSelected(option.value)
+                        }
+                        className={`rounded-xl border p-4 text-left transition ${
+                          isActive
+                            ? "border-white/50 bg-white/15"
+                            : "border-white/10 bg-white/5 hover:border-white/20"
+                        } ${hasSubmitted ? "cursor-not-allowed opacity-60" : ""}`}
+                        disabled={hasSubmitted}
+                      >
+                        <p className="text-base font-semibold text-white">
+                          {option.label}
+                        </p>
+                        <p className="mt-1 text-sm text-white/60">
+                          {option.description}
+                        </p>
+                        {isActive && (
+                          <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/50 bg-cyan-500/10 px-2 py-1 text-xs text-cyan-200">
+                            <span className="flex h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                            已选择
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
 
-                {/* Custom year input option */}
-                <button
-                  onClick={() => !hasSubmitted && setShowCustomInput(true)}
-                  className={`rounded-2xl border p-5 text-left transition ${
-                    showCustomInput
-                      ? "border-white/50 bg-white/15"
-                      : "border-white/10 bg-white/5 hover:border-white/20"
-                  } ${hasSubmitted ? "cursor-not-allowed opacity-60" : ""}`}
-                  disabled={hasSubmitted}
-                >
-                  <p className="text-lg font-semibold text-white">自定义年份</p>
-                  <p className="mt-2 text-sm text-white/60">输入您预测的年份</p>
-                  {showCustomInput && (
-                    <div className="mt-4 space-y-2">
-                      <input
-                        type="number"
-                        min={2027}
-                        value={customYear}
-                        onChange={(e) => {
-                          setCustomYear(e.target.value);
-                          setSelected(parseInt(e.target.value));
-                        }}
-                        placeholder="如: 2049"
-                        className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      {customYear && (
-                        <div className="text-xs text-white/60">
-                          将配对为:{" "}
-                          {(() => {
-                            const inputYear = parseInt(customYear);
-                            if (isNaN(inputYear)) return "";
-                            const rangeStart =
-                              inputYear % 2 === 0 ? inputYear - 1 : inputYear;
-                            const rangeEnd = rangeStart + 2;
-                            return `${rangeStart}-${rangeEnd}年`;
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {showCustomInput && customYear && (
-                    <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-cyan-400/50 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-200">
-                      <span className="flex h-2 w-2 rounded-full bg-cyan-400" />
-                      已选择
-                    </span>
-                  )}
-                </button>
+                  {/* Custom year input option */}
+                  <button
+                    onClick={() => !hasSubmitted && setShowCustomInput(true)}
+                    className={`rounded-xl border p-4 text-left transition ${
+                      showCustomInput
+                        ? "border-white/50 bg-white/15"
+                        : "border-white/10 bg-white/5 hover:border-white/20"
+                    } ${hasSubmitted ? "cursor-not-allowed opacity-60" : ""}`}
+                    disabled={hasSubmitted}
+                  >
+                    <p className="text-base font-semibold text-white">
+                      自定义年份
+                    </p>
+                    <p className="mt-1 text-sm text-white/60">
+                      输入您预测的年份
+                    </p>
+                    {showCustomInput && (
+                      <div className="mt-3 space-y-2">
+                        <input
+                          type="number"
+                          min={2027}
+                          value={customYear}
+                          onChange={(e) => {
+                            setCustomYear(e.target.value);
+                            setSelected(parseInt(e.target.value));
+                          }}
+                          placeholder="如: 2049"
+                          className="w-full rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        {customYear && (
+                          <div className="text-xs text-white/60">
+                            将配对为:{" "}
+                            {(() => {
+                              const inputYear = parseInt(customYear);
+                              if (isNaN(inputYear)) return "";
+                              const rangeStart =
+                                inputYear % 2 === 0 ? inputYear - 1 : inputYear;
+                              const rangeEnd = rangeStart + 2;
+                              return `${rangeStart}-${rangeEnd}年`;
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {showCustomInput && customYear && (
+                      <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-cyan-400/50 bg-cyan-500/10 px-2 py-1 text-xs text-cyan-200">
+                        <span className="flex h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                        已选择
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* 投票券数量输入 */}
-              <div className="mt-6">
-                <label className="mb-2 block text-sm font-medium text-white">
-                  使用投票券数量
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    min="0.01"
-                    max={tickets}
-                    step="0.01"
-                    value={ticketsToVote}
-                    onChange={(e) => setTicketsToVote(e.target.value)}
-                    placeholder="输入投票券数量"
-                    className="flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-                    disabled={hasSubmitted || isPending}
-                  />
-                  <Button
-                    onClick={() => setTicketsToVote(tickets.toString())}
-                    variant="outline"
-                    size="sm"
-                    disabled={hasSubmitted || isPending}
-                    className="border-white/20 bg-white/5 text-white hover:bg-white/10"
-                  >
-                    全部
-                  </Button>
+              <div className="mt-8 rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-6 backdrop-blur-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20">
+                    <svg
+                      className="h-4 w-4 text-purple-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">
+                    使用投票券数量
+                  </h3>
                 </div>
-                <p className="mt-1 text-xs text-white/60">
-                  可用余额: {tickets.toFixed(2)} 张投票券
-                </p>
+
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0.01"
+                        max={tickets}
+                        step="0.01"
+                        value={ticketsToVote}
+                        onChange={(e) => setTicketsToVote(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full rounded-xl border border-white/20 bg-white/10 px-4 py-4 text-lg text-white transition-all duration-200 placeholder:text-white/50 focus:border-purple-400/60 focus:bg-white/15 focus:ring-2 focus:ring-purple-400/20 focus:outline-none"
+                        disabled={hasSubmitted || isPending}
+                      />
+                      <div className="absolute top-1/2 right-4 -translate-y-1/2 text-sm text-white/40">
+                        张
+                      </div>
+                    </div>
+
+                    {/* 百分比选择按钮 */}
+                    <div className="flex gap-2">
+                      {[0.25, 0.5, 0.75, 1].map((ratio) => {
+                        const amount =
+                          tickets > 0 ? (tickets * ratio).toFixed(2) : "0.00";
+                        return (
+                          <Button
+                            key={ratio}
+                            variant="outline"
+                            onClick={() => setTicketsToVote(amount)}
+                            disabled={
+                              hasSubmitted || isPending || tickets === 0
+                            }
+                            className="flex-1 rounded-full border-white/20 bg-white/5 px-4 py-2 text-sm text-white transition-all duration-200 hover:border-white/30 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {ratio === 1
+                              ? "100%"
+                              : `${(ratio * 100).toFixed(0)}%`}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 余额显示 */}
+                  <div className="flex items-center justify-between rounded-lg bg-white/5 px-4 py-2">
+                    <span className="text-sm text-white/70">可用余额</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-semibold text-white">
+                        {tickets.toFixed(2)}
+                      </span>
+                      <span className="text-sm text-white/50">张投票券</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3 text-xs text-white/60">
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                  投票券将一次性投入所选年份
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                  开奖前不可更改选择
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                  开奖后正确用户获 NFT 奖励
-                </span>
+              {/* 信息提示卡片 */}
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <div className="group rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 to-emerald-400/5 p-4 transition-all duration-200 hover:border-emerald-400/30 hover:bg-gradient-to-br hover:from-emerald-500/15 hover:to-emerald-400/10">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20">
+                      <svg
+                        className="h-3 w-3 text-emerald-300"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        一次性投入
+                      </p>
+                      <p className="mt-1 text-xs text-white/60">
+                        投票券将一次性投入所选年份
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="group rounded-xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 to-amber-400/5 p-4 transition-all duration-200 hover:border-amber-400/30 hover:bg-gradient-to-br hover:from-amber-500/15 hover:to-amber-400/10">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/20">
+                      <svg
+                        className="h-3 w-3 text-amber-300"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">不可更改</p>
+                      <p className="mt-1 text-xs text-white/60">
+                        开奖前不可更改选择
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="group rounded-xl border border-purple-400/20 bg-gradient-to-br from-purple-500/10 to-purple-400/5 p-4 transition-all duration-200 hover:border-purple-400/30 hover:bg-gradient-to-br hover:from-purple-500/15 hover:to-purple-400/10">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500/20">
+                      <svg
+                        className="h-3 w-3 text-purple-300"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">NFT 奖励</p>
+                      <p className="mt-1 text-xs text-white/60">
+                        开奖后正确用户获 NFT 奖励
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <Button
