@@ -211,11 +211,11 @@ export function UserDashboard() {
 
   return (
     <section className="mb-16" aria-labelledby="dashboard-title">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2
             id="dashboard-title"
-            className="text-2xl font-semibold text-white"
+            className="polkadot-gradient-text font-[family-name:var(--font-heading)] text-3xl font-bold"
           >
             我的控制台
           </h2>
@@ -223,35 +223,40 @@ export function UserDashboard() {
             已铸造与抵押数据实时同步，所有票券均与链上资产 1:1 绑定。
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
+        <div className="glass-effect flex items-center gap-2 rounded-full border border-white/10 px-5 py-2.5 text-xs transition-all duration-300 hover:border-[#e6007a]/50 hover:shadow-lg hover:shadow-[#e6007a]/20">
           <span
             className={`flex h-2 w-2 rounded-full ${
               userData.isLoading
-                ? "animate-pulse bg-yellow-400"
+                ? "animate-pulse bg-[#e6007a]"
                 : userData.hasError
-                  ? "bg-red-400"
-                  : "bg-green-400"
+                  ? "bg-[#ff4d88]"
+                  : "bg-[#56f39a]"
             }`}
           />
-          {userData.isLoading
-            ? "同步中..."
-            : userData.hasError
-              ? "数据错误"
-              : "状态正常"}
+          <span className="font-semibold text-white">
+            {userData.isLoading
+              ? "同步中..."
+              : userData.hasError
+                ? "数据错误"
+                : "状态正常"}
+          </span>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => (
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {cards.map((card, index) => (
           <div
             key={card.label}
-            className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
+            className="group glass-effect rounded-3xl border border-white/10 p-6 shadow-xl transition-all duration-500 hover:-translate-y-2 hover:border-[#e6007a]/50 hover:shadow-2xl hover:shadow-[#e6007a]/30"
+            style={{ animationDelay: `${index * 100}ms` }}
           >
-            <div className="mb-3 flex items-center justify-between text-sm text-white/60">
-              <span>{card.label}</span>
-              <span className={card.iconColor}>{card.icon}</span>
+            <div className="mb-4 flex items-center justify-between text-sm text-gray-400">
+              <span className="font-semibold">{card.label}</span>
+              <span className={`${card.iconColor}`}>{card.icon}</span>
             </div>
-            <p className="text-2xl font-semibold text-white">{card.value}</p>
+            <p className="polkadot-gradient-text font-[family-name:var(--font-heading)] text-3xl font-bold">
+              {card.value}
+            </p>
             <p className="mt-1 text-xs text-white/60">{card.helper}</p>
           </div>
         ))}

@@ -1,7 +1,7 @@
 import "@/styles/globals.css";
 
 import { type Metadata } from "next";
-// import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Unbounded } from "next/font/google";
 
 import { TRPCReactProvider } from "@/trpc/react";
 import { Web3Provider } from "@/providers/Web3Provider";
@@ -15,27 +15,28 @@ export const metadata: Metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
-// 临时禁用 Google Fonts 以避免 Turbopack 问题
-// const geist = Geist({
-//   subsets: ["latin"],
-//   variable: "--font-geist-sans",
-//   display: "swap",
-//   preload: true,
-// });
+// Polkadot 风格字体系统
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+  preload: true,
+});
 
-// const geistMono = Geist_Mono({
-//   subsets: ["latin"],
-//   variable: "--font-geist-mono",
-//   display: "swap",
-//   preload: true,
-// });
+const unbounded = Unbounded({
+  subsets: ["latin"],
+  variable: "--font-unbounded",
+  display: "swap",
+  preload: true,
+  weight: ["400", "600", "700"],
+});
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-slate-950 font-sans text-white">
+    <html lang="en" className={`${inter.variable} ${unbounded.variable}`}>
+      <body className="min-h-screen bg-gradient-to-br from-[#0d0d27] via-[#1a1a3e] to-[#0d0d27] font-sans text-white">
         <TRPCReactProvider>
           <Web3Provider>
             <WalletProvider>

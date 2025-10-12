@@ -131,30 +131,59 @@ async function getParticipantCount(
   stakingContractAddress: string,
 ): Promise<string> {
   try {
-    // 获取 Staked 事件日志
-    const logs = await client.getLogs({
-      address: stakingContractAddress as `0x${string}`,
-      event: {
-        type: "event",
-        name: "Staked",
-        inputs: [
-          { name: "user", type: "address", indexed: true },
-          { name: "amount", type: "uint256", indexed: false },
-          { name: "lockDuration", type: "uint256", indexed: false },
-          { name: "ticketsMinted", type: "uint256", indexed: false },
-        ],
-      },
-      fromBlock: 0n, // 从创世区块开始
-      toBlock: "latest",
-    });
+    // 获取当前区块号
+    const currentBlock = await client.getBlockNumber();
 
-    // 统计唯一的用户地址
+    // Moonbase Alpha 限制单次查询 1024 个区块
+    // 我们分批查询，每次查询 1000 个区块
+    const BATCH_SIZE = 1000n;
     const uniqueUsers = new Set<string>();
-    logs.forEach((log) => {
-      if (log?.args?.user) {
-        uniqueUsers.add((log.args.user as string).toLowerCase());
+
+    // 从最近的 10000 个区块开始查询（约 1-2 天的数据）
+    // 如果需要更多历史数据，可以增加这个值
+    const blocksToQuery = 10000n;
+    const startBlock =
+      currentBlock > blocksToQuery ? currentBlock - blocksToQuery : 0n;
+
+    // 分批查询
+    for (
+      let fromBlock = startBlock;
+      fromBlock <= currentBlock;
+      fromBlock += BATCH_SIZE
+    ) {
+      const toBlock =
+        fromBlock + BATCH_SIZE > currentBlock
+          ? currentBlock
+          : fromBlock + BATCH_SIZE;
+
+      try {
+        const logs = await client.getLogs({
+          address: stakingContractAddress as `0x${string}`,
+          event: {
+            type: "event",
+            name: "Staked",
+            inputs: [
+              { name: "user", type: "address", indexed: true },
+              { name: "amount", type: "uint256", indexed: false },
+              { name: "lockDuration", type: "uint256", indexed: false },
+              { name: "ticketsMinted", type: "uint256", indexed: false },
+            ],
+          },
+          fromBlock,
+          toBlock,
+        });
+
+        // 统计唯一的用户地址
+        logs.forEach((log) => {
+          if (log?.args?.user) {
+            uniqueUsers.add((log.args.user as string).toLowerCase());
+          }
+        });
+      } catch (batchError) {
+        console.warn(`查询区块 ${fromBlock} 到 ${toBlock} 失败:`, batchError);
+        // 继续查询其他批次
       }
-    });
+    }
 
     return uniqueUsers.size.toString();
   } catch (error) {

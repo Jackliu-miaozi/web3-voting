@@ -34,13 +34,13 @@ const networks = [
  */
 export function HeaderWithWallet() {
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-black/30 backdrop-blur-xl">
+    <header className="glass-effect sticky top-0 z-50 border-b border-[#e6007a]/20 shadow-lg">
       <div className="container mx-auto flex items-center justify-between gap-6 px-4 py-4">
         <div className="flex flex-1 items-center gap-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-purple-500">
+          <Link href="/" className="group flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e6007a] to-[#552bbf] shadow-lg shadow-[#e6007a]/50 transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-[#e6007a]/70">
               <svg
-                className="h-6 w-6 text-white"
+                className="h-7 w-7 text-white"
                 fill="currentColor"
                 viewBox="0 0 24 24"
               >
@@ -48,10 +48,10 @@ export function HeaderWithWallet() {
               </svg>
             </div>
             <div className="hidden flex-col sm:flex">
-              <span className="text-sm font-semibold text-white">
+              <span className="polkadot-gradient-text font-[family-name:var(--font-heading)] text-base font-bold">
                 BTC 未来预测
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-300">
                 Moonbeam × Bifrost × Chainlink
               </span>
             </div>
@@ -61,25 +61,23 @@ export function HeaderWithWallet() {
             {networks.map((network) => (
               <div
                 key={network.name}
-                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-200"
+                className="glass-effect flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-xs transition-all duration-300 hover:border-[#e6007a]/50 hover:shadow-md hover:shadow-[#e6007a]/20"
               >
                 <span
-                  className={`h-2 w-2 rounded-full bg-gradient-to-r ${network.color}`}
+                  className={`h-2 w-2 rounded-full bg-gradient-to-r ${network.color} animate-pulse`}
                 />
-                <span className="font-medium text-white/80">
-                  {network.name}
-                </span>
+                <span className="font-semibold text-white">{network.name}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <nav className="hidden items-center gap-6 lg:flex">
+        <nav className="hidden items-center gap-3 lg:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="text-sm text-gray-200 transition hover:text-white"
+              className="relative px-2 py-1 text-sm font-semibold text-gray-200 transition-all duration-300 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-gradient-to-r after:from-[#e6007a] after:to-[#552bbf] after:transition-all after:duration-300 hover:scale-110 hover:text-[#e6007a] hover:after:w-full"
             >
               {item.label}
             </Link>

@@ -16,31 +16,36 @@ const voteOptions = [
     value: 3,
     label: "3 年内",
     description: "2028 年前被超越",
-    color: "from-red-500 to-orange-500",
+    color: "from-[#ff4d8a] to-[#e6007a]",
+    glow: "shadow-[#e6007a]/50",
   },
   {
     value: 5,
     label: "5 年内",
     description: "2030 年前被超越",
-    color: "from-orange-500 to-yellow-500",
+    color: "from-[#e6007a] to-[#552bbf]",
+    glow: "shadow-[#552bbf]/50",
   },
   {
     value: 10,
     label: "10 年内",
     description: "2035 年前被超越",
-    color: "from-yellow-500 to-green-500",
+    color: "from-[#552bbf] to-[#00b2ff]",
+    glow: "shadow-[#00b2ff]/50",
   },
   {
     value: 20,
     label: "20 年内",
     description: "2045 年前被超越",
-    color: "from-green-500 to-blue-500",
+    color: "from-[#00b2ff] to-[#56f39a]",
+    glow: "shadow-[#56f39a]/50",
   },
   {
     value: 99,
     label: "永不会被超越",
     description: "BTC 将保持领先",
-    color: "from-blue-500 to-purple-500",
+    color: "from-[#56f39a] to-[#e6007a]",
+    glow: "shadow-[#e6007a]/50",
   },
 ];
 
@@ -140,10 +145,10 @@ export function VoteSection({
               {voteOptions.map((option) => (
                 <div
                   key={option.value}
-                  className={`relative cursor-pointer rounded-lg border p-4 transition-all ${
+                  className={`relative cursor-pointer rounded-2xl border p-4 transition-all duration-300 ${
                     selectedOption === option.value.toString()
-                      ? "border-white/40 bg-white/10"
-                      : "border-white/20 bg-white/5 hover:border-white/30"
+                      ? `glass-effect border-white/40 shadow-lg ${option.glow} scale-[1.02]`
+                      : "glass-effect border-white/10 hover:scale-[1.01] hover:border-white/30"
                   }`}
                   onClick={() => setSelectedOption(option.value.toString())}
                 >
@@ -156,16 +161,16 @@ export function VoteSection({
                     <div className="flex-1">
                       <Label
                         htmlFor={`option-${option.value}`}
-                        className="cursor-pointer text-white"
+                        className="cursor-pointer font-semibold text-white"
                       >
                         {option.label}
                       </Label>
-                      <p className="mt-1 text-sm text-gray-400">
+                      <p className="mt-1 text-sm text-gray-300">
                         {option.description}
                       </p>
                     </div>
                     <div
-                      className={`h-3 w-3 rounded-full bg-gradient-to-r ${option.color} opacity-60`}
+                      className={`h-4 w-4 rounded-full bg-gradient-to-r ${option.color} shadow-lg ${option.glow}`}
                     />
                   </div>
                 </div>
