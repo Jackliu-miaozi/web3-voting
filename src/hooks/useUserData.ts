@@ -8,11 +8,13 @@ import {
   useWatchContractEvent,
 } from "wagmi";
 import { useMemo, useState, useEffect } from "react";
-import { getContractAddress } from "@/config/contracts";
-import vDOTAbi from "@/contracts/abis/vDOT.json";
-import VotingTicketAbi from "@/contracts/abis/VotingTicket.json";
-import StakingContractAbi from "@/contracts/abis/StakingContract.json";
-import VotingContractAbi from "@/contracts/abis/VotingContract.json";
+import {
+  getContractAddress,
+  vDOTAbi,
+  votingTicketAbi as VotingTicketAbi,
+  stakingContractAbi as StakingContractAbi,
+  votingContractAbi as VotingContractAbi,
+} from "@/config/contracts";
 
 /**
  * 格式化大数字显示

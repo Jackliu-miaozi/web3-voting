@@ -11,8 +11,7 @@ import {
   useWriteContract,
 } from "wagmi";
 import { parseEther, formatEther } from "viem";
-import { getContractAddress } from "@/config/contracts";
-import vDOTAbi from "@/contracts/abis/vDOT.json";
+import { getContractAddress, vDOTAbi } from "@/config/contracts";
 
 export function useMintingPage() {
   const { address } = useAccount();
@@ -89,7 +88,7 @@ export function useMintingPage() {
 
     sendTransaction({
       to: vDOTAddress,
-      value: parseEther(amount), // 发送 ETH
+      value: parseEther(amount), // 发送 ETH 到合约地址触发 receive 函数
     });
   };
 
