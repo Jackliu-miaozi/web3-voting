@@ -1,11 +1,11 @@
 import type { Address } from "viem";
 
 /**
- * 合约地址配置
- * 支持多链部署，根据链 ID 返回对应的合约地址
+ * Contract Address Configuration
+ * Supports multi-chain deployment, returns corresponding contract addresses based on chain ID
  */
 
-// 已部署的合约地址（Local Node with PolkaVM - Chain ID: 420420420）
+// Deployed contract addresses (Local Node with PolkaVM - Chain ID: 420420420)
 const HARDHAT_CONTRACTS = {
   vDOT: "0x3ed62137c5DB927cb137c26455969116BF0c23Cb" as Address,
   StakingContract: "0x598efcBD0B5b4Fd0142bEAae1a38f6Bd4d8a218d" as Address,
@@ -16,7 +16,7 @@ const HARDHAT_CONTRACTS = {
   OmniLSAdapter: "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318" as Address,
 } as const;
 
-// Moonbase Alpha 测试网合约地址
+// Moonbase Alpha Testnet Contract Addresses
 const MOONBASE_ALPHA_CONTRACTS = {
   vDOT: "0xD8e779Ca9D22E587f64f613dE9615c797095d225" as Address,
   StakingContract: "0xc0b279c4918F236e9d82f54DFd2e4A819c1Ce156" as Address,
@@ -27,7 +27,7 @@ const MOONBASE_ALPHA_CONTRACTS = {
   OmniLSAdapter: "0x0000000000000000000000000000000000000000" as Address,
 } as const;
 
-// Moonbeam 主网合约地址（待部署）
+// Moonbeam Mainnet Contract Addresses (To be deployed)
 const MOONBEAM_CONTRACTS = {
   vDOT: "0x0000000000000000000000000000000000000000" as Address,
   StakingContract: "0x0000000000000000000000000000000000000000" as Address,
@@ -38,7 +38,7 @@ const MOONBEAM_CONTRACTS = {
   OmniLSAdapter: "0x0000000000000000000000000000000000000000" as Address,
 } as const;
 
-// Moonriver 测试网合约地址（待部署）
+// Moonriver Testnet Contract Addresses (To be deployed)
 const MOONRIVER_CONTRACTS = {
   vDOT: "0x0000000000000000000000000000000000000000" as Address,
   StakingContract: "0x0000000000000000000000000000000000000000" as Address,
@@ -50,7 +50,7 @@ const MOONRIVER_CONTRACTS = {
 } as const;
 
 /**
- * 根据链 ID 获取合约地址
+ * Get contract addresses by chain ID
  */
 export function getContractAddresses(
   chainId: number,
@@ -59,7 +59,7 @@ export function getContractAddresses(
     case 31337: // Hardhat Local
       return HARDHAT_CONTRACTS;
     case 420420420: // PolkaVM Local
-      return HARDHAT_CONTRACTS; // 使用相同的合约地址
+      return HARDHAT_CONTRACTS; // Use the same contract addresses
     case 1287: // Moonbase Alpha
       return MOONBASE_ALPHA_CONTRACTS;
     case 1284: // Moonbeam
@@ -75,7 +75,7 @@ export function getContractAddresses(
 }
 
 /**
- * 获取特定合约地址
+ * Get specific contract address
  */
 export function getContractAddress(
   chainId: number,
@@ -86,7 +86,7 @@ export function getContractAddress(
 }
 
 /**
- * 检查合约是否已部署（地址不为零地址）
+ * Check if contract is deployed (address is not zero address)
  */
 export function isContractDeployed(
   chainId: number,
@@ -97,7 +97,7 @@ export function isContractDeployed(
 }
 
 /**
- * 获取所有已部署的合约信息
+ * Get all deployed contract information
  */
 export function getDeployedContracts(chainId: number): Record<string, Address> {
   const contracts = getContractAddresses(chainId);
@@ -112,10 +112,10 @@ export function getDeployedContracts(chainId: number): Record<string, Address> {
   return deployed;
 }
 
-// 导出默认配置（当前使用 Moonbase Alpha）
+// Export default configuration (currently using Moonbase Alpha)
 export const DEFAULT_CONTRACTS = MOONBASE_ALPHA_CONTRACTS;
 
-// 导出各个合约地址和 ABI
+// Export contract addresses and ABIs
 export const btcOracleAddress = MOONBASE_ALPHA_CONTRACTS.BTCOracle;
 export const votingContractAddress = MOONBASE_ALPHA_CONTRACTS.VotingContract;
 export const votingTicketAddress = MOONBASE_ALPHA_CONTRACTS.VotingTicket;
@@ -129,7 +129,7 @@ import VotingTicketArtifact from "@/contracts/abis/VotingTicket.json";
 import StakingContractArtifact from "@/contracts/abis/StakingContract.json";
 import VDOTArtifact from "@/contracts/abis/vDOT.json";
 
-// 从 Hardhat 编译输出中提取 ABI
+// Extract ABI from Hardhat compilation output
 export const btcOracleAbi = (BTCOracleArtifact as { abi: unknown[] }).abi;
 export const votingContractAbi = (VotingContractArtifact as { abi: unknown[] })
   .abi;

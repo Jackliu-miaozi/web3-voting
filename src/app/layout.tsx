@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
-// Polkadot 风格字体系统
+// Polkadot-style font system
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
