@@ -47,7 +47,21 @@ export function useMintingPage() {
     isPending,
     error,
     data: hash,
-  } = useSendTransaction();
+  } = useSendTransaction({
+    mutation: {
+      onError: (error) => {
+        console.error("Deposit transaction error:", error);
+        // Log detailed error information for debugging
+        if (error.message?.includes("circuit breaker")) {
+          console.error("Circuit breaker error detected. Possible causes:");
+          console.error("1. RPC node temporarily unavailable");
+          console.error("2. Request rate limit exceeded");
+          console.error("3. Network connectivity issues");
+          console.error("4. Wallet provider RPC endpoint issues");
+        }
+      },
+    },
+  });
 
   // 写入合约 (用于redeem vDOT)
   const {
@@ -86,10 +100,20 @@ export function useMintingPage() {
       throw new Error("请输入有效的数量");
     }
 
-    sendTransaction({
-      to: vDOTAddress,
-      value: parseEther(amount), // 发送 DOT 到合约地址触发 receive 函数
-    });
+    console.log("🚀 Starting deposit transaction...");
+    console.log("  - Amount:", amount, "DOT");
+    console.log("  - To address:", vDOTAddress);
+    console.log("  - Chain ID:", chainId);
+
+    try {
+      sendTransaction({
+        to: vDOTAddress,
+        value: parseEther(amount), // 发送 DOT 到合约地址触发 receive 函数
+      });
+    } catch (error) {
+      console.error("❌ Error in deposit function:", error);
+      throw error;
+    }
   };
 
   // Redeem vDOT 赎回 DOT

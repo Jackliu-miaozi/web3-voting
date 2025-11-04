@@ -220,10 +220,7 @@ export default function Home() {
       <footer className="border-t border-white/10 bg-black/20">
         <div className="container mx-auto max-w-7xl px-4 py-10 text-sm text-white/60">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <p>
-              © 2025 BTC Future Prediction Platform · Powered by Moonbeam &
-              Bifrost
-            </p>
+            <p>© 2025 Web3 Voting · Powered by Moonbeam & Bifrost</p>
             <div className="flex flex-wrap items-center gap-4 text-xs">
               <Link href="/docs/security" className="hover:text-white">
                 Security Audit Report

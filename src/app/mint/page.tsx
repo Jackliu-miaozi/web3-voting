@@ -172,21 +172,33 @@ export default function MintPage() {
               ❌ Deposit Failed
             </p>
             <p className="text-center text-xs text-red-300/80">
-              {error.message.includes("circuit breaker") ||
-              error.message.includes("circuit breaker is open")
-                ? "Network connection issue. Please check your internet connection and try again. If the problem persists, try switching to a different network or RPC endpoint."
-                : error.message.includes("User rejected") ||
-                    error.message.includes("user rejected")
+              {error.message?.includes("circuit breaker") ||
+              error.message?.includes("circuit breaker is open")
+                ? "Network connection issue. This usually happens when the RPC node is temporarily unavailable or rate-limited. Please try the following solutions:"
+                : error.message?.includes("User rejected") ||
+                    error.message?.includes("user rejected")
                   ? "Transaction was cancelled by user."
-                  : error.message.includes("insufficient funds") ||
-                      error.message.includes("insufficient balance")
+                  : error.message?.includes("insufficient funds") ||
+                      error.message?.includes("insufficient balance")
                     ? "Insufficient balance. Please check your wallet balance."
-                    : error.message}
+                    : error.message || "Unknown error occurred"}
             </p>
-            {error.message.includes("circuit breaker") && (
-              <p className="mt-2 text-center text-xs text-red-300/60">
-                💡 Tip: Try refreshing the page or switching networks.
-              </p>
+            {(error.message?.includes("circuit breaker") ||
+              error.message?.includes("circuit breaker is open")) && (
+              <div className="mt-3 space-y-1 text-left text-xs text-red-300/60">
+                <p className="font-medium">💡 Solutions:</p>
+                <ul className="ml-4 list-disc space-y-0.5">
+                  <li>Wait 10-30 seconds and try again</li>
+                  <li>Refresh the page</li>
+                  <li>Switch to a different network and switch back</li>
+                  <li>Check your internet connection</li>
+                  <li>If using MetaMask, try disconnecting and reconnecting</li>
+                </ul>
+                <p className="mt-2 text-xs text-red-300/50">
+                  Note: This error is often caused by RPC node rate limiting.
+                  The transaction will work once the RPC node recovers.
+                </p>
+              </div>
             )}
           </div>
         )}

@@ -49,7 +49,7 @@ export function HeaderWithWallet() {
             </div>
             <div className="hidden flex-col sm:flex">
               <span className="polkadot-gradient-text font-[family-name:var(--font-heading)] text-base font-bold">
-                BTC Future Prediction
+                Web3 Voting
               </span>
               <span className="text-xs text-gray-300">
                 Moonbeam × Bifrost × Chainlink
@@ -129,7 +129,7 @@ export function HeaderWithWallet() {
                     </div>
                     <div className="flex flex-col">
                       <span className="text-sm font-semibold text-white">
-                        BTC Future Prediction
+                        Web3 Voting
                       </span>
                       <span className="text-xs text-white/60">
                         Moonbeam · Bifrost · Chainlink

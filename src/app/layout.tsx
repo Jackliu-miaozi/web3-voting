@@ -9,7 +9,7 @@ import { WalletProvider } from "@/contexts/WalletContext";
 import { HeaderWithWallet } from "@/components/voting/HeaderWithWallet";
 
 export const metadata: Metadata = {
-  title: "Web3 Voting - BTC Future Prediction",
+  title: "Web3 Voting",
   description:
     "Decentralized voting platform on Moonbeam & Bifrost powered by Chainlink",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
