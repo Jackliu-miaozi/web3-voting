@@ -22,7 +22,7 @@ export function useMintingPage() {
   // 获取合约地址
   const vDOTAddress = getContractAddress(chainId, "vDOT");
 
-  // 获取 ETH 余额
+  // 获取 DOT 余额
   const { data: balance } = useBalance({
     address,
     query: {
@@ -41,7 +41,7 @@ export function useMintingPage() {
     },
   });
 
-  // 发送交易 (用于存入ETH)
+  // 发送交易 (用于存入DOT)
   const {
     sendTransaction,
     isPending,
@@ -76,7 +76,7 @@ export function useMintingPage() {
     return parseFloat(amount).toFixed(4);
   }, [amount]);
 
-  // 存入 ETH 铸造 vDOT
+  // 存入 DOT 铸造 vDOT
   const deposit = () => {
     if (!address) {
       throw new Error("请先连接钱包");
@@ -88,11 +88,11 @@ export function useMintingPage() {
 
     sendTransaction({
       to: vDOTAddress,
-      value: parseEther(amount), // 发送 ETH 到合约地址触发 receive 函数
+      value: parseEther(amount), // 发送 DOT 到合约地址触发 receive 函数
     });
   };
 
-  // Redeem vDOT 赎回 ETH
+  // Redeem vDOT 赎回 DOT
   const redeem = () => {
     if (!address) {
       throw new Error("请先连接钱包");

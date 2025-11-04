@@ -39,7 +39,7 @@ function formatNumber(value: bigint, decimals = 18): string {
  * User data interface
  */
 export interface UserData {
-  // Native token balance (ETH/DOT)
+  // Native token balance (DOT)
   nativeBalance: string;
   // vDOT balance
   vDOTBalance: string;
@@ -77,7 +77,7 @@ export function useUserData(): UserData {
   // Get staking details
   const stakeDetails = useUserStakeDetails();
 
-  // Read native token balance (ETH/DOT)
+  // Read native token balance (DOT)
   const { data: nativeBalance } = useBalance({
     address,
     query: {

@@ -150,8 +150,8 @@ export const hardhat = defineChain({
   network: "hardhat",
   nativeCurrency: {
     decimals: 18,
-    name: "Ether",
-    symbol: "ETH",
+    name: "DOT",
+    symbol: "DOT",
   },
   rpcUrls: {
     default: {

@@ -2,6 +2,21 @@ import { cookieStorage, createConfig, createStorage, http } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { moonbaseAlpha, moonbeam, moonriver, polkavm, hardhat } from "./chains";
 
+/**
+ * Create HTTP transport with retry and timeout configuration
+ * This helps prevent "circuit breaker is open" errors
+ */
+const createHttpTransport = (url?: string) => {
+  return http(url, {
+    retryCount: 3, // Retry up to 3 times
+    retryDelay: 1000, // Wait 1 second between retries
+    timeout: 30000, // 30 second timeout
+    fetchOptions: {
+      cache: "no-store", // Prevent caching issues
+    },
+  });
+};
+
 // Get WalletConnect project ID from environment - only on client side
 const projectId =
   typeof window !== "undefined"
@@ -42,11 +57,20 @@ function createWagmiConfig() {
     ssr: true,
     multiInjectedProviderDiscovery: false, // Prevent multiple provider detection
     transports: {
-      [moonbaseAlpha.id]: http(),
-      [moonbeam.id]: http(),
-      [moonriver.id]: http(),
-      [polkavm.id]: http(),
-      [hardhat.id]: http(),
+      [moonbaseAlpha.id]: createHttpTransport(
+        process.env.NEXT_PUBLIC_MOONBASE_ALPHA_RPC_URL ??
+          "https://rpc.api.moonbase.moonbeam.network",
+      ),
+      [moonbeam.id]: createHttpTransport(
+        process.env.NEXT_PUBLIC_MOONBEAM_RPC_URL ??
+          "https://rpc.api.moonbeam.network",
+      ),
+      [moonriver.id]: createHttpTransport(
+        process.env.NEXT_PUBLIC_MOONRIVER_RPC_URL ??
+          "https://rpc.api.moonriver.moonbeam.network",
+      ),
+      [polkavm.id]: createHttpTransport("http://127.0.0.1:8545"),
+      [hardhat.id]: createHttpTransport("http://127.0.0.1:8545"),
     },
   });
 }

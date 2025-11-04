@@ -202,7 +202,7 @@ export function AssetOverview() {
           ? "Loading..."
           : userData.hasError
             ? "Data Error"
-            : `${userData.nativeBalance} ETH`
+            : `${userData.nativeBalance} DOT`
         : "--",
       hint: "Actual balance displayed after wallet connection",
       accent: "from-cyan-500/30 to-cyan-400/20",
@@ -214,7 +214,7 @@ export function AssetOverview() {
           ? "Loading..."
           : userData.hasError
             ? "Data Error"
-            : `${availableToMint} ETH`
+            : `${availableToMint} DOT`
         : "--",
       hint: "Remaining available after deducting reserved staking",
       accent: "from-purple-500/30 to-purple-400/20",

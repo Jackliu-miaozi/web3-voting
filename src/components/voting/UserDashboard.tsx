@@ -11,7 +11,7 @@ export function UserDashboard() {
         ? "Loading..."
         : userData.hasError
           ? "Data Error"
-          : `${userData.nativeBalance} ETH`,
+          : `${userData.nativeBalance} DOT`,
       helper: "Wallet balance",
       iconColor: "text-cyan-300",
       icon: (
